@@ -45,24 +45,25 @@
 
   <!-- Top Navigation & Role Switcher Bar -->
   <header class="bg-slate-900 text-white sticky top-0 z-50 shadow-md border-b-4 border-brand-green">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex items-center justify-between h-16">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-14 sm:h-16 gap-2">
         
         <!-- Brand Logo & Kenya Transit Badge -->
-        <div class="flex items-center space-x-3 cursor-pointer" onclick="switchView('passenger')">
-          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-green to-emerald-400 flex items-center justify-center shadow-lg text-white font-black text-xl">
+        <div class="flex items-center space-x-2 sm:space-x-3 cursor-pointer shrink-0" onclick="switchView('passenger')">
+          <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-brand-green to-emerald-400 flex items-center justify-center shadow-lg text-white font-black text-sm sm:text-xl">
             TG
           </div>
           <div>
-            <div class="font-bold text-lg tracking-tight flex items-center gap-2">
-              <span>TransitGo Nairobi</span>
-              <span class="text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-medium">Live GPS</span>
+            <div class="font-bold text-sm sm:text-lg tracking-tight flex items-center gap-1 sm:gap-2">
+              <span>TransitGo</span>
+              <span class="hidden xs:inline">Nairobi</span>
+              <span class="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.2 rounded-full font-medium">Live</span>
             </div>
-            <p class="text-xs text-slate-400">Bus & Matatu Booking, Tracking and Payment</p>
+            <p class="hidden md:block text-[11px] text-slate-400 leading-tight">Bus & Matatu Booking, Tracking and Payment</p>
           </div>
         </div>
 
-        <!-- Role Navigation Tabs -->
+        <!-- Role Navigation Tabs (Desktop) -->
         <nav class="hidden lg:flex items-center space-x-1 bg-slate-800/90 p-1.5 rounded-xl border border-slate-700">
           <button id="nav-passenger" onclick="switchView('passenger')" class="px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-1.5 bg-brand-green text-white shadow-sm">
             <span>🚏</span> Passenger App
@@ -81,48 +82,48 @@
           </button>
         </nav>
 
-        <!-- Right Quick Actions: Wallet, Lost & Found, Notifications -->
-        <div class="flex items-center space-x-2">
+        <!-- Right Quick Actions: Wallet, Trips, Favs, Notifications -->
+        <div class="flex items-center space-x-1.5 sm:space-x-2 shrink-0">
           
           <!-- Passenger Wallet Button -->
-          <button onclick="openWalletModal()" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 rounded-xl text-xs transition-colors">
+          <button onclick="openWalletModal()" class="flex items-center gap-1 sm:gap-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 px-2 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[11px] sm:text-xs transition-colors">
             <span class="text-emerald-400">👛</span>
             <span class="font-bold text-white" id="header-wallet-balance">KSh 1,450</span>
           </button>
 
-          <!-- Trip History Button -->
+          <!-- Trip History Button (Desktop) -->
           <button onclick="openTripHistoryModal()" class="hidden md:flex items-center gap-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 px-2.5 py-1.5 rounded-xl text-xs text-slate-300 hover:text-white transition-colors" title="My Trip History">
             <span>📜</span> Trips
           </button>
 
-          <!-- Favorite Routes Button -->
+          <!-- Favorite Routes Button (Desktop) -->
           <button onclick="openFavoritesModal()" class="hidden md:flex items-center gap-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 px-2.5 py-1.5 rounded-xl text-xs text-slate-300 hover:text-white transition-colors" title="Favorite Routes">
             <span>⭐</span> Favs
           </button>
 
-          <!-- Customer Support Button -->
+          <!-- Customer Support Button (Tablet/Desktop) -->
           <button onclick="openSupportModal()" class="hidden sm:flex items-center gap-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 px-2.5 py-1.5 rounded-xl text-xs text-slate-300 hover:text-white transition-colors" title="Help & Support Desk">
             <span>🎧</span> Support
           </button>
 
-          <!-- Corporate Booking Button -->
+          <!-- Corporate Booking Button (Desktop) -->
           <button onclick="openCorporateModal()" class="hidden lg:flex items-center gap-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 px-2.5 py-1.5 rounded-xl text-xs text-slate-300 hover:text-white transition-colors" title="Corporate Staff Commuter Account">
             <span>🏢</span> Corporate
           </button>
 
-          <!-- Lost & Found Button -->
+          <!-- Lost & Found Button (Tablet/Desktop) -->
           <button onclick="openLostFoundModal()" class="hidden sm:flex items-center gap-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 px-2.5 py-1.5 rounded-xl text-xs text-slate-300 hover:text-white transition-colors" title="Lost & Found Registry">
             <span>🧳</span> Lost & Found
           </button>
 
           <!-- User Account / Login Button -->
-          <button onclick="openAuthModal()" id="header-auth-btn" class="flex items-center gap-1 bg-brand-green/30 hover:bg-brand-green/50 border border-brand-green/40 px-2.5 py-1.5 rounded-xl text-xs text-emerald-300 font-semibold transition-colors">
+          <button onclick="openAuthModal()" id="header-auth-btn" class="flex items-center gap-1 bg-brand-green/30 hover:bg-brand-green/50 border border-brand-green/40 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-xl text-[11px] sm:text-xs text-emerald-300 font-semibold transition-colors">
             <span>👤</span> <span id="header-user-name">Login</span>
           </button>
 
           <!-- Notifications Bell -->
-          <button onclick="openNotificationModal()" class="relative p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+          <button onclick="openNotificationModal()" class="relative p-1.5 sm:p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors">
+            <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
             <span id="notif-badge" class="absolute top-1 right-1 w-2 h-2 bg-brand-red rounded-full"></span>
           </button>
         </div>
@@ -130,34 +131,37 @@
       </div>
     </div>
 
-    <!-- Mobile Sub-bar -->
-    <div class="lg:hidden flex overflow-x-auto py-2 px-3 space-x-2 bg-slate-800 border-t border-slate-700 text-xs">
-      <button onclick="switchView('passenger')" class="whitespace-nowrap px-3 py-1.5 rounded-md bg-brand-green text-white font-semibold">Passenger</button>
-      <button onclick="switchView('conductor')" class="whitespace-nowrap px-3 py-1.5 rounded-md bg-slate-700 text-slate-200">Conductor</button>
-      <button onclick="switchView('operator')" class="whitespace-nowrap px-3 py-1.5 rounded-md bg-slate-700 text-slate-200">Operator</button>
-      <button onclick="switchView('admin')" class="whitespace-nowrap px-3 py-1.5 rounded-md bg-slate-700 text-slate-200">Admin</button>
-      <button onclick="switchView('split')" class="whitespace-nowrap px-3 py-1.5 rounded-md bg-amber-600 text-white">Split Demo</button>
-      <button onclick="openWalletModal()" class="whitespace-nowrap px-3 py-1.5 rounded-md bg-slate-700 text-emerald-400 font-bold">Wallet</button>
-      <button onclick="openLostFoundModal()" class="whitespace-nowrap px-3 py-1.5 rounded-md bg-slate-700 text-slate-200">Lost & Found</button>
+    <!-- Mobile Sub-bar with complete horizontal touch scrolling -->
+    <div class="lg:hidden flex overflow-x-auto py-2 px-3 space-x-2 bg-slate-800 border-t border-slate-700 text-xs no-scrollbar">
+      <button id="mob-nav-passenger" onclick="switchView('passenger')" class="whitespace-nowrap px-3 py-1.5 rounded-lg bg-brand-green text-white font-semibold shadow-sm">🚏 Passenger</button>
+      <button id="mob-nav-conductor" onclick="switchView('conductor')" class="whitespace-nowrap px-3 py-1.5 rounded-lg bg-slate-700 text-slate-200">🚌 Conductor</button>
+      <button id="mob-nav-operator" onclick="switchView('operator')" class="whitespace-nowrap px-3 py-1.5 rounded-lg bg-slate-700 text-slate-200">🏢 Operator</button>
+      <button id="mob-nav-admin" onclick="switchView('admin')" class="whitespace-nowrap px-3 py-1.5 rounded-lg bg-slate-700 text-slate-200">🛡️ Admin</button>
+      <button id="mob-nav-split" onclick="switchView('split')" class="whitespace-nowrap px-3 py-1.5 rounded-lg bg-amber-600 text-white font-semibold">⚡ Split Demo</button>
+      <button onclick="openTripHistoryModal()" class="whitespace-nowrap px-3 py-1.5 rounded-lg bg-slate-700 text-slate-200">📜 Trips</button>
+      <button onclick="openFavoritesModal()" class="whitespace-nowrap px-3 py-1.5 rounded-lg bg-slate-700 text-slate-200">⭐ Favs</button>
+      <button onclick="openSupportModal()" class="whitespace-nowrap px-3 py-1.5 rounded-lg bg-slate-700 text-slate-200">🎧 Support</button>
+      <button onclick="openCorporateModal()" class="whitespace-nowrap px-3 py-1.5 rounded-lg bg-slate-700 text-slate-200">🏢 Corporate</button>
+      <button onclick="openLostFoundModal()" class="whitespace-nowrap px-3 py-1.5 rounded-lg bg-slate-700 text-slate-200">🧳 Lost & Found</button>
     </div>
   </header>
 
   <!-- Live Traffic Advisory Bar -->
-  <div class="bg-slate-900 border-b border-slate-800 py-1.5 px-4 text-xs text-slate-300">
-    <div class="max-w-7xl mx-auto flex items-center justify-between">
-      <div class="flex items-center gap-2 overflow-hidden text-ellipsis whitespace-nowrap">
-        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-        <strong class="text-white">Nairobi Traffic Advisory:</strong>
-        <span id="traffic-advisory-text">Langata Rd: Moderate traffic (+4 min ETA) | Thika Superhighway: Flowing smoothly | Waiyaki Way: Clear</span>
+  <div class="bg-slate-900 border-b border-slate-800 py-1.5 px-3 sm:px-4 text-[11px] sm:text-xs text-slate-300">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1 sm:gap-2">
+      <div class="flex items-center gap-2 overflow-hidden text-ellipsis whitespace-nowrap max-w-full">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
+        <strong class="text-white shrink-0">Traffic Advisory:</strong>
+        <span id="traffic-advisory-text" class="truncate">Langata Rd: Moderate (+4 min ETA) | Thika Superhighway: Flowing smoothly | Waiyaki Way: Clear</span>
       </div>
-      <button onclick="openReviewsModal()" class="text-xs text-amber-400 hover:text-amber-300 font-semibold underline whitespace-nowrap ml-3">
+      <button onclick="openReviewsModal()" class="text-amber-400 hover:text-amber-300 font-semibold underline whitespace-nowrap shrink-0 text-[11px] sm:text-xs">
         ⭐ Rate Your Trip
       </button>
     </div>
   </div>
 
   <!-- MAIN APP CONTAINER -->
-  <main class="flex-1 flex flex-col relative max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+  <main class="flex-1 flex flex-col relative max-w-7xl w-full mx-auto p-3 sm:p-5 lg:p-8">
 
     <!-- 1. PASSENGER VIEW -->
     <section id="view-passenger" class="space-y-6">
@@ -269,32 +273,32 @@
             </div>
 
             <!-- Leaflet Map Container -->
-            <div id="passenger-map" class="w-full h-[450px] relative z-0"></div>
+            <div id="passenger-map" class="w-full h-[280px] sm:h-[380px] lg:h-[460px] relative z-0"></div>
 
             <!-- Live Vehicle ETA & Telemetry Bar below map -->
-            <div id="vehicle-telemetry-bar" class="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
-              <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-base shadow">
+            <div id="vehicle-telemetry-bar" class="p-3 sm:p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+              <div class="flex items-center gap-3 w-full sm:w-auto">
+                <div class="w-9 h-9 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-base shadow shrink-0">
                   🚌
                 </div>
-                <div>
-                  <div id="telemetry-vehicle-reg" class="font-bold text-slate-900 text-sm">Select a vehicle to inspect</div>
-                  <div id="telemetry-vehicle-route" class="text-slate-500">Live coordinates and estimated arrival</div>
+                <div class="min-w-0 flex-1">
+                  <div id="telemetry-vehicle-reg" class="font-bold text-slate-900 text-xs sm:text-sm truncate">Select a vehicle to inspect</div>
+                  <div id="telemetry-vehicle-route" class="text-slate-500 text-[11px] truncate">Live coordinates and estimated arrival</div>
                 </div>
               </div>
 
-              <div class="flex items-center gap-4">
-                <div class="text-right">
-                  <div class="text-slate-400 text-[11px]">Distance:</div>
-                  <div id="telemetry-distance" class="font-bold text-slate-800">-</div>
+              <div class="grid grid-cols-3 gap-2 w-full sm:w-auto text-center sm:text-right border-t sm:border-t-0 pt-2 sm:pt-0">
+                <div class="bg-white sm:bg-transparent p-1.5 sm:p-0 rounded border sm:border-0">
+                  <div class="text-slate-400 text-[10px] sm:text-[11px]">Distance:</div>
+                  <div id="telemetry-distance" class="font-bold text-slate-800 text-xs sm:text-sm">-</div>
                 </div>
-                <div class="text-right">
-                  <div class="text-slate-400 text-[11px]">Arrival ETA:</div>
-                  <div id="telemetry-eta" class="font-bold text-emerald-600 text-sm">-</div>
+                <div class="bg-white sm:bg-transparent p-1.5 sm:p-0 rounded border sm:border-0">
+                  <div class="text-slate-400 text-[10px] sm:text-[11px]">Arrival ETA:</div>
+                  <div id="telemetry-eta" class="font-bold text-emerald-600 text-xs sm:text-sm">-</div>
                 </div>
-                <div class="text-right">
-                  <div class="text-slate-400 text-[11px]">Current Speed:</div>
-                  <div id="telemetry-speed" class="font-bold text-slate-800">-</div>
+                <div class="bg-white sm:bg-transparent p-1.5 sm:p-0 rounded border sm:border-0">
+                  <div class="text-slate-400 text-[10px] sm:text-[11px]">Speed:</div>
+                  <div id="telemetry-speed" class="font-bold text-slate-800 text-xs sm:text-sm">-</div>
                 </div>
               </div>
             </div>
@@ -302,13 +306,13 @@
           </div>
 
           <!-- Active Ticket Card -->
-          <div id="active-ticket-banner" class="hidden bg-gradient-to-r from-emerald-600 to-teal-700 text-white rounded-2xl p-5 shadow-lg flex items-center justify-between">
+          <div id="active-ticket-banner" class="hidden bg-gradient-to-r from-emerald-600 to-teal-700 text-white rounded-2xl p-4 sm:p-5 shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div class="space-y-1">
-              <span class="text-xs bg-white/20 px-2 py-0.5 rounded-full font-semibold">Active Digital Boarding Pass</span>
-              <h3 id="banner-ticket-title" class="text-lg font-bold">Ticket Ready for Boarding</h3>
+              <span class="text-[10px] sm:text-xs bg-white/20 px-2 py-0.5 rounded-full font-semibold">Active Digital Boarding Pass</span>
+              <h3 id="banner-ticket-title" class="text-base sm:text-lg font-bold">Ticket Ready for Boarding</h3>
               <p id="banner-ticket-subtitle" class="text-xs text-emerald-100">Show QR Code to Conductor Dennis on vehicle KDA 123A</p>
             </div>
-            <button onclick="openCurrentTicketModal()" class="bg-white text-emerald-800 font-bold px-4 py-2 rounded-xl text-sm shadow hover:bg-emerald-50 transition-colors">
+            <button onclick="openCurrentTicketModal()" class="w-full sm:w-auto bg-white text-emerald-800 font-bold px-4 py-2 rounded-xl text-xs sm:text-sm shadow hover:bg-emerald-50 transition-colors text-center">
               View Ticket & QR
             </button>
           </div>
@@ -396,10 +400,10 @@
                 <tr>
                   <th class="p-2.5">Passenger</th>
                   <th class="p-2.5">Seat</th>
-                  <th class="p-2.5">Boarding Point</th>
-                  <th class="p-2.5">Destination</th>
+                  <th class="p-2.5 hidden sm:table-cell">Boarding Point</th>
+                  <th class="p-2.5 hidden md:table-cell">Destination</th>
                   <th class="p-2.5">Status</th>
-                  <th class="p-2.5">Ticket</th>
+                  <th class="p-2.5 hidden sm:table-cell">Ticket</th>
                 </tr>
               </thead>
               <tbody id="conductor-manifest-tbody" class="divide-y divide-slate-100">
@@ -514,12 +518,12 @@
             <thead class="bg-slate-50 text-slate-600 uppercase font-semibold border-b">
               <tr>
                 <th class="p-2.5">Plate Number</th>
-                <th class="p-2.5">Model & Type</th>
+                <th class="p-2.5 hidden sm:table-cell">Model & Type</th>
                 <th class="p-2.5">Capacity</th>
-                <th class="p-2.5">Assigned Route</th>
-                <th class="p-2.5">Seating Mode</th>
+                <th class="p-2.5 hidden sm:table-cell">Assigned Route</th>
+                <th class="p-2.5 hidden lg:table-cell">Seating Mode</th>
                 <th class="p-2.5">Status</th>
-                <th class="p-2.5">Action</th>
+                <th class="p-2.5 hidden sm:table-cell">Action</th>
               </tr>
             </thead>
             <tbody id="op-fleet-tbody" class="divide-y divide-slate-100">
@@ -657,7 +661,7 @@
           </div>
           <span class="text-xs text-slate-500">Live GPS tracking over OpenStreetMap Nairobi</span>
         </div>
-        <div id="admin-map" class="w-full h-[400px] rounded-xl overflow-hidden border"></div>
+        <div id="admin-map" class="w-full h-[250px] sm:h-[350px] lg:h-[400px] rounded-xl overflow-hidden border"></div>
       </div>
 
       <!-- Traffic Simulation Control Bar (Section 23 - Traffic-based ETA) -->
@@ -888,7 +892,7 @@
 
   <!-- 2. M-PESA & WALLET CHECKOUT MODAL (With Promo Code Support) -->
   <div id="modal-mpesa-checkout" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
+    <div class="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
       
       <div class="bg-brand-mpesa p-4 text-white flex items-center justify-between">
         <div class="flex items-center gap-2">
@@ -996,7 +1000,7 @@
 
   <!-- 3. DIGITAL TICKET & QR CODE MODAL -->
   <div id="modal-digital-ticket" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-3xl max-w-sm w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col text-slate-900">
+    <div class="bg-white rounded-3xl max-w-sm w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 overflow-hidden flex flex-col text-slate-900">
       
       <div class="bg-gradient-to-r from-emerald-600 to-teal-700 p-5 text-white text-center relative">
         <button onclick="closeTicketModal()" class="absolute top-3 right-4 text-emerald-200 hover:text-white text-xl font-bold">&times;</button>
@@ -1173,7 +1177,7 @@
 
   <!-- 6. RATINGS & REVIEWS MODAL (Section 23) -->
   <div id="modal-reviews" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl border space-y-4 p-6">
+    <div class="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl border space-y-4 p-6">
       <div class="flex items-center justify-between border-b pb-3">
         <h3 class="font-bold text-base text-slate-900">Passenger Trip Review & Rating</h3>
         <button onclick="closeReviewsModal()" class="text-slate-400 hover:text-slate-700 text-xl font-bold">&times;</button>
@@ -1206,7 +1210,7 @@
 
   <!-- 7. ADD VEHICLE MODAL -->
   <div id="modal-add-vehicle" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border space-y-4">
+    <div class="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl border space-y-4">
       <div class="flex items-center justify-between border-b pb-3">
         <h3 class="font-bold text-base text-slate-900">Register New Fleet Vehicle</h3>
         <button onclick="closeAddVehicleModal()" class="text-slate-400 hover:text-slate-700 text-xl font-bold">&times;</button>
@@ -1250,7 +1254,7 @@
 
   <!-- 8. NOTIFICATION MODAL -->
   <div id="modal-notifications" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border space-y-4">
+    <div class="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl border space-y-4">
       <div class="flex items-center justify-between border-b pb-3">
         <h3 class="font-bold text-base text-slate-900">Trip & Booking Notifications</h3>
         <button onclick="closeNotificationModal()" class="text-slate-400 hover:text-slate-700 text-xl font-bold">&times;</button>
@@ -1265,7 +1269,7 @@
 
   <!-- 9. TRIP HISTORY MODAL (Section 23 Future Features) -->
   <div id="modal-trip-history" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border space-y-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl border space-y-4">
       <div class="flex items-center justify-between border-b pb-3">
         <div>
           <h3 class="font-bold text-base text-slate-900">Passenger Trip History</h3>
@@ -1284,7 +1288,7 @@
 
   <!-- 10. FAVORITE ROUTES MODAL (Section 23 Future Features) -->
   <div id="modal-favorites" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border space-y-4">
+    <div class="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl border space-y-4">
       <div class="flex items-center justify-between border-b pb-3">
         <div>
           <h3 class="font-bold text-base text-slate-900">Saved Favorite Routes</h3>
@@ -1307,7 +1311,7 @@
 
   <!-- 11. CUSTOMER SUPPORT MODAL (Section 23 Future Features) -->
   <div id="modal-support" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border space-y-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl border space-y-4">
       <div class="flex items-center justify-between border-b pb-3">
         <div>
           <h3 class="font-bold text-base text-slate-900">TransitGo Customer Support Desk</h3>
@@ -1354,7 +1358,7 @@
 
   <!-- 12. CORPORATE COMMUTER MODAL (Section 23 Future Features) -->
   <div id="modal-corporate" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border space-y-4">
+    <div class="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl border space-y-4">
       <div class="flex items-center justify-between border-b pb-3">
         <div>
           <h3 class="font-bold text-base text-slate-900">Corporate Employee Commute</h3>
@@ -1398,7 +1402,7 @@
 
   <!-- 13. AUTHENTICATION & LOGIN MODAL (Section 21) -->
   <div id="modal-auth" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border space-y-4">
+    <div class="bg-white rounded-2xl max-w-sm w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl border space-y-4">
       <div class="flex items-center justify-between border-b pb-3">
         <div>
           <h3 class="font-bold text-base text-slate-900" id="auth-modal-title">TransitGo Account Login</h3>

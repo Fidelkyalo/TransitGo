@@ -100,6 +100,7 @@ function switchView(viewName) {
       }
     }
 
+    // Desktop nav buttons
     const btn = document.getElementById(`nav-${v}`);
     if (btn) {
       if (v === viewName) {
@@ -108,6 +109,18 @@ function switchView(viewName) {
       } else {
         btn.classList.remove('bg-brand-green', 'text-white');
         btn.classList.add('text-slate-300');
+      }
+    }
+
+    // Mobile nav buttons
+    const mobBtn = document.getElementById(`mob-nav-${v}`);
+    if (mobBtn) {
+      if (v === viewName) {
+        mobBtn.classList.add('bg-brand-green', 'text-white');
+        mobBtn.classList.remove('text-slate-300', 'bg-slate-800');
+      } else {
+        mobBtn.classList.remove('bg-brand-green', 'text-white');
+        mobBtn.classList.add('text-slate-300', 'bg-slate-800');
       }
     }
   });

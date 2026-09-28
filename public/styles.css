@@ -1,5 +1,15 @@
 /* Custom styling for Nairobi Local Bus & Matatu Transit Platform */
 
+* {
+  -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
+}
+
+html, body {
+  overflow-x: hidden;
+  width: 100%;
+}
+
 @keyframes pulse-subtle {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.6; }
@@ -12,6 +22,8 @@
 /* Custom Leaflet Map styling */
 .leaflet-container {
   font-family: inherit;
+  width: 100% !important;
+  max-width: 100%;
 }
 
 .custom-bus-marker {
@@ -50,11 +62,17 @@
 .seat-btn {
   transition: all 0.15s ease-in-out;
   cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
 }
 
 .seat-btn:hover:not(:disabled) {
   transform: translateY(-2px);
   filter: brightness(0.95);
+}
+
+.seat-btn:active:not(:disabled) {
+  transform: scale(0.95);
 }
 
 .seat-btn.selected {
@@ -82,12 +100,22 @@
 /* QR Code Display Canvas */
 #ticket-qrcode img, #ticket-qrcode canvas {
   margin: 0 auto;
+  max-width: 100%;
+  height: auto;
 }
 
-/* Scrollbar polish */
+/* Scrollbar polish & no-scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -101,4 +129,36 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+/* Responsive Modal Sizing & Scrolling */
+@media (max-width: 640px) {
+  .modal-dialog {
+    margin: 0.5rem;
+    max-height: 94vh !important;
+    width: calc(100% - 1rem) !important;
+  }
+
+  .seat-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 10px;
+  }
+}
+
+/* Mobile Table Horizontal Scrolling Fade Indicators */
+.table-responsive-wrapper {
+  position: relative;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Safe Area Insets for modern devices (iPhone notch & navigation pill) */
+@supports (padding: max(0px)) {
+  header {
+    padding-top: max(0px, env(safe-area-inset-top));
+  }
+  body {
+    padding-bottom: max(0px, env(safe-area-inset-bottom));
+  }
 }

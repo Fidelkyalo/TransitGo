@@ -1,0 +1,24 @@
+name: Sync Mirror Repositories
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push Mirror to roverking254
+        if: github.repository == 'Fidelkyalo/TransitGo'
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git remote add target https://${{ secrets.SYNC_TOKEN || github.token }}@github.com/roverking254/TransitGo.git || true
+          git push --force --all target || echo "Sync requires SYNC_TOKEN secret if repo permissions are cross-account"

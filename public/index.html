@@ -90,9 +90,34 @@
             <span class="font-bold text-white" id="header-wallet-balance">KSh 1,450</span>
           </button>
 
+          <!-- Trip History Button -->
+          <button onclick="openTripHistoryModal()" class="hidden md:flex items-center gap-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 px-2.5 py-1.5 rounded-xl text-xs text-slate-300 hover:text-white transition-colors" title="My Trip History">
+            <span>📜</span> Trips
+          </button>
+
+          <!-- Favorite Routes Button -->
+          <button onclick="openFavoritesModal()" class="hidden md:flex items-center gap-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 px-2.5 py-1.5 rounded-xl text-xs text-slate-300 hover:text-white transition-colors" title="Favorite Routes">
+            <span>⭐</span> Favs
+          </button>
+
+          <!-- Customer Support Button -->
+          <button onclick="openSupportModal()" class="hidden sm:flex items-center gap-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 px-2.5 py-1.5 rounded-xl text-xs text-slate-300 hover:text-white transition-colors" title="Help & Support Desk">
+            <span>🎧</span> Support
+          </button>
+
+          <!-- Corporate Booking Button -->
+          <button onclick="openCorporateModal()" class="hidden lg:flex items-center gap-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 px-2.5 py-1.5 rounded-xl text-xs text-slate-300 hover:text-white transition-colors" title="Corporate Staff Commuter Account">
+            <span>🏢</span> Corporate
+          </button>
+
           <!-- Lost & Found Button -->
           <button onclick="openLostFoundModal()" class="hidden sm:flex items-center gap-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 px-2.5 py-1.5 rounded-xl text-xs text-slate-300 hover:text-white transition-colors" title="Lost & Found Registry">
             <span>🧳</span> Lost & Found
+          </button>
+
+          <!-- User Account / Login Button -->
+          <button onclick="openAuthModal()" id="header-auth-btn" class="flex items-center gap-1 bg-brand-green/30 hover:bg-brand-green/50 border border-brand-green/40 px-2.5 py-1.5 rounded-xl text-xs text-emerald-300 font-semibold transition-colors">
+            <span>👤</span> <span id="header-user-name">Login</span>
           </button>
 
           <!-- Notifications Bell -->
@@ -538,6 +563,32 @@
               <div><span class="text-slate-400 block text-[10px]">On-Time Rate</span><strong class="text-slate-800 text-sm">93%</strong></div>
               <div><span class="text-slate-400 block text-[10px]">Trips Done</span><strong class="text-slate-800 text-sm">980</strong></div>
             </div>
+          </div>
+      <!-- Automated Revenue Sharing Breakdown (Section 23 Future Features) -->
+      <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-4">
+        <div class="border-b pb-3 flex items-center justify-between">
+          <div>
+            <h3 class="font-bold text-base text-slate-900">Automated Revenue Sharing & Disbursement Split</h3>
+            <p class="text-xs text-slate-500">Statutory revenue allocation: 85% SACCO Operator, 10% Platform, 5% Nairobi County Mobility Fund</p>
+          </div>
+          <button onclick="loadRevenueShareData()" class="text-xs text-emerald-700 font-semibold">Refresh Split</button>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+          <div class="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
+            <div class="text-emerald-800 font-bold text-xs uppercase">SACCO Net Payout (85%)</div>
+            <div id="revshare-sacco-net" class="text-2xl font-black text-emerald-700 mt-1">KSh 378,250</div>
+            <div class="text-[10px] text-emerald-600 mt-1">Direct RTGS / M-Pesa B2C payout</div>
+          </div>
+          <div class="p-4 bg-blue-50 rounded-xl border border-blue-200">
+            <div class="text-blue-800 font-bold text-xs uppercase">Platform Infrastructure (10%)</div>
+            <div id="revshare-platform-fee" class="text-2xl font-black text-blue-700 mt-1">KSh 44,500</div>
+            <div class="text-[10px] text-blue-600 mt-1">Cloud hosting, GPS telematics & Daraja</div>
+          </div>
+          <div class="p-4 bg-amber-50 rounded-xl border border-amber-200">
+            <div class="text-amber-800 font-bold text-xs uppercase">Nairobi County Transport Fee (5%)</div>
+            <div id="revshare-county-fee" class="text-2xl font-black text-amber-700 mt-1">KSh 22,250</div>
+            <div class="text-[10px] text-amber-600 mt-1">Remitted to Nairobi City County treasury</div>
           </div>
         </div>
       </div>
@@ -1208,6 +1259,193 @@
       </div>
       <div class="text-right">
         <button onclick="closeNotificationModal()" class="px-4 py-2 text-xs font-semibold bg-slate-800 text-white rounded-lg">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 9. TRIP HISTORY MODAL (Section 23 Future Features) -->
+  <div id="modal-trip-history" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border space-y-4">
+      <div class="flex items-center justify-between border-b pb-3">
+        <div>
+          <h3 class="font-bold text-base text-slate-900">Passenger Trip History</h3>
+          <p class="text-xs text-slate-500">Record of your previous Nairobi metropolitan journeys</p>
+        </div>
+        <button onclick="closeTripHistoryModal()" class="text-slate-400 hover:text-slate-700 text-xl font-bold">&times;</button>
+      </div>
+      <div id="trip-history-list" class="space-y-3 max-h-[360px] overflow-y-auto text-xs">
+        <!-- Loaded dynamically -->
+      </div>
+      <div class="text-right pt-2 border-t">
+        <button onclick="closeTripHistoryModal()" class="px-4 py-1.5 text-xs font-semibold bg-slate-800 text-white rounded-lg">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 10. FAVORITE ROUTES MODAL (Section 23 Future Features) -->
+  <div id="modal-favorites" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border space-y-4">
+      <div class="flex items-center justify-between border-b pb-3">
+        <div>
+          <h3 class="font-bold text-base text-slate-900">Saved Favorite Routes</h3>
+          <p class="text-xs text-slate-500">Quick-book your frequent Nairobi commutes</p>
+        </div>
+        <button onclick="closeFavoritesModal()" class="text-slate-400 hover:text-slate-700 text-xl font-bold">&times;</button>
+      </div>
+      <div id="favorites-list" class="space-y-2 text-xs">
+        <!-- Loaded dynamically -->
+      </div>
+      <div class="p-3 bg-slate-50 rounded-xl border space-y-2 text-xs">
+        <strong class="text-slate-700 block">Save Current Selected Route</strong>
+        <input id="fav-nickname-input" type="text" placeholder="Nickname e.g. Daily Work Route" class="w-full border rounded p-1.5 bg-white" />
+        <button onclick="saveCurrentRouteAsFavorite()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1.5 rounded">
+          ⭐ Save to My Favorites
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 11. CUSTOMER SUPPORT MODAL (Section 23 Future Features) -->
+  <div id="modal-support" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border space-y-4">
+      <div class="flex items-center justify-between border-b pb-3">
+        <div>
+          <h3 class="font-bold text-base text-slate-900">TransitGo Customer Support Desk</h3>
+          <p class="text-xs text-slate-500">Inquire about payments, lost items, or conductor service</p>
+        </div>
+        <button onclick="closeSupportModal()" class="text-slate-400 hover:text-slate-700 text-xl font-bold">&times;</button>
+      </div>
+
+      <!-- Ticket Submission Form -->
+      <div class="p-3 bg-slate-50 rounded-xl border space-y-2 text-xs">
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block font-semibold text-slate-700">Category</label>
+            <select id="sup-category" class="w-full border rounded p-1.5 bg-white">
+              <option value="payment">M-Pesa / Payment Issue</option>
+              <option value="lost_item">Lost Property Inquiry</option>
+              <option value="conductor">Conductor Conduct</option>
+              <option value="general">General Feedback</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700">Subject</label>
+            <input id="sup-subject" type="text" placeholder="Short description" class="w-full border rounded p-1.5 bg-white" />
+          </div>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700">Details</label>
+          <textarea id="sup-desc" rows="2" placeholder="Explain the situation in detail..." class="w-full border rounded p-1.5 bg-white"></textarea>
+        </div>
+        <button onclick="submitSupportTicket()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1.5 rounded">
+          Submit Support Ticket
+        </button>
+      </div>
+
+      <!-- Existing User Tickets -->
+      <div class="space-y-2">
+        <h4 class="font-bold text-xs text-slate-700 uppercase">My Support Inquiries</h4>
+        <div id="support-tickets-list" class="space-y-2 max-h-[180px] overflow-y-auto text-xs">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 12. CORPORATE COMMUTER MODAL (Section 23 Future Features) -->
+  <div id="modal-corporate" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border space-y-4">
+      <div class="flex items-center justify-between border-b pb-3">
+        <div>
+          <h3 class="font-bold text-base text-slate-900">Corporate Employee Commute</h3>
+          <p class="text-xs text-slate-500">Ride authorized buses billed directly to employer scheme</p>
+        </div>
+        <button onclick="closeCorporateModal()" class="text-slate-400 hover:text-slate-700 text-xl font-bold">&times;</button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Select Corporate Employer Scheme</label>
+          <select id="corp-select" class="w-full border rounded-lg p-2 bg-white">
+            <option value="corp-1">Safaricom PLC Commuter Scheme (SAF-COMMUTE-2025)</option>
+            <option value="corp-2">Equity Bank HQ Staff Transport (EQ-STAFF-2025)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Employee Staff Number</label>
+          <input id="corp-emp-id" type="text" value="EMP-014" placeholder="e.g. EMP-014" class="w-full border rounded-lg p-2" />
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Passenger Name</label>
+          <input id="corp-passenger-name" type="text" value="Brian Mwangi" class="w-full border rounded-lg p-2" />
+        </div>
+        <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-200">
+          <div class="flex justify-between text-slate-700">
+            <span>Corporate Allowance:</span>
+            <strong class="text-emerald-700 font-bold">KSh 12,000 / mo</strong>
+          </div>
+          <div class="flex justify-between text-slate-700 mt-1">
+            <span>Current Ride Charge:</span>
+            <strong class="text-slate-900 font-bold">KSh 100</strong>
+          </div>
+        </div>
+        <button onclick="bookWithCorporateInvoice()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-xl shadow">
+          Confirm Corporate Billed Booking
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 13. AUTHENTICATION & LOGIN MODAL (Section 21) -->
+  <div id="modal-auth" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border space-y-4">
+      <div class="flex items-center justify-between border-b pb-3">
+        <div>
+          <h3 class="font-bold text-base text-slate-900" id="auth-modal-title">TransitGo Account Login</h3>
+          <p class="text-xs text-slate-500">Secure JWT Authentication with Password Hashing</p>
+        </div>
+        <button onclick="closeAuthModal()" class="text-slate-400 hover:text-slate-700 text-xl font-bold">&times;</button>
+      </div>
+
+      <div class="flex rounded-lg bg-slate-100 p-1 text-xs font-semibold">
+        <button id="auth-tab-login" onclick="switchAuthTab('login')" class="flex-1 py-1.5 rounded-md bg-white text-slate-900 shadow-sm">Login</button>
+        <button id="auth-tab-register" onclick="switchAuthTab('register')" class="flex-1 py-1.5 rounded-md text-slate-600 hover:text-slate-900">Register</button>
+      </div>
+
+      <div id="auth-login-fields" class="space-y-3 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Phone Number or Email</label>
+          <input id="login-identifier" type="text" value="0712345678" class="w-full border rounded-lg p-2" />
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Password</label>
+          <input id="login-password" type="password" value="Pass1234!" class="w-full border rounded-lg p-2" />
+        </div>
+        <button onclick="submitLogin()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-xl shadow">
+          Sign In
+        </button>
+      </div>
+
+      <div id="auth-register-fields" class="space-y-3 text-xs hidden">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Full Name</label>
+          <input id="reg-name" type="text" placeholder="e.g. Kelvin Otieno" class="w-full border rounded-lg p-2" />
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Phone Number (Safaricom M-Pesa)</label>
+          <input id="reg-phone" type="text" placeholder="e.g. 0712000111" class="w-full border rounded-lg p-2" />
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Email Address</label>
+          <input id="reg-email" type="email" placeholder="e.g. kelvin@example.com" class="w-full border rounded-lg p-2" />
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Password</label>
+          <input id="reg-password" type="password" placeholder="At least 6 characters" class="w-full border rounded-lg p-2" />
+        </div>
+        <button onclick="submitRegister()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-xl shadow">
+          Create Account
+        </button>
       </div>
     </div>
   </div>

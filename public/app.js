@@ -41,6 +41,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadAdminData();
   loadLostFoundItems();
   checkExistingTicket();
+  checkAuthState();
 
   // Register service worker if supported
   if ('serviceWorker' in navigator) {
@@ -72,6 +73,15 @@ function initSocket() {
 
     state.socket.on('traffic:updated', (data) => {
       refreshNearbyVehicles();
+    });
+
+    state.socket.on('geofence:approaching', (data) => {
+      showToast(data.message);
+      addNotification({
+        title: 'Bus Approaching Stop',
+        message: data.message,
+        time: 'Just now'
+      });
     });
   }
 }
@@ -1620,3 +1630,402 @@ function showToast(message) {
     toast.classList.add('translate-y-20', 'opacity-0');
   }, 3500);
 }
+
+// ================= AUTHENTICATION & JWT (Section 21) =================
+
+function getAuthHeader() {
+  const token = localStorage.getItem('transitgo_jwt');
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
+}
+
+function checkAuthState() {
+  const token = localStorage.getItem('transitgo_jwt');
+  const storedUser = localStorage.getItem('transitgo_user');
+  const btnText = document.getElementById('header-user-name');
+  if (token && storedUser && btnText) {
+    try {
+      const user = JSON.parse(storedUser);
+      btnText.textContent = user.name.split(' ')[0];
+    } catch(e) {}
+  }
+}
+
+function openAuthModal() {
+  document.getElementById('modal-auth').classList.remove('hidden');
+}
+
+function closeAuthModal() {
+  document.getElementById('modal-auth').classList.add('hidden');
+}
+
+function switchAuthTab(tab) {
+  const loginFields = document.getElementById('auth-login-fields');
+  const regFields = document.getElementById('auth-register-fields');
+  const tabLogin = document.getElementById('auth-tab-login');
+  const tabReg = document.getElementById('auth-tab-register');
+  const title = document.getElementById('auth-modal-title');
+
+  if (tab === 'login') {
+    loginFields.classList.remove('hidden');
+    regFields.classList.add('hidden');
+    tabLogin.classList.add('bg-white', 'text-slate-900', 'shadow-sm');
+    tabLogin.classList.remove('text-slate-600');
+    tabReg.classList.remove('bg-white', 'text-slate-900', 'shadow-sm');
+    tabReg.classList.add('text-slate-600');
+    title.textContent = 'TransitGo Account Login';
+  } else {
+    loginFields.classList.add('hidden');
+    regFields.classList.remove('hidden');
+    tabReg.classList.add('bg-white', 'text-slate-900', 'shadow-sm');
+    tabReg.classList.remove('text-slate-600');
+    tabLogin.classList.remove('bg-white', 'text-slate-900', 'shadow-sm');
+    tabLogin.classList.add('text-slate-600');
+    title.textContent = 'Register Passenger Account';
+  }
+}
+
+async function submitLogin() {
+  const id = document.getElementById('login-identifier').value.trim();
+  const pass = document.getElementById('login-password').value;
+
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifier: id, password: pass })
+    });
+    const data = await res.json();
+    if (data.success) {
+      localStorage.setItem('transitgo_jwt', data.token);
+      localStorage.setItem('transitgo_user', JSON.stringify(data.user));
+      showToast(`Welcome back, ${data.user.name}!`);
+      checkAuthState();
+      closeAuthModal();
+      if (data.user.role === 'conductor') switchView('conductor');
+      else if (data.user.role === 'operator') switchView('operator');
+      else if (data.user.role === 'admin') switchView('admin');
+    } else {
+      showToast(data.message || 'Login failed');
+    }
+  } catch(err) {
+    console.error(err);
+    showToast('Network error during login');
+  }
+}
+
+async function submitRegister() {
+  const name = document.getElementById('reg-name').value.trim();
+  const phone = document.getElementById('reg-phone').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const password = document.getElementById('reg-password').value;
+
+  if (!name || !phone || !password) {
+    showToast('Name, phone and password required');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, phone, email, password, role: 'passenger' })
+    });
+    const data = await res.json();
+    if (data.success) {
+      localStorage.setItem('transitgo_jwt', data.token);
+      localStorage.setItem('transitgo_user', JSON.stringify(data.user));
+      showToast('Account created! KSh 200 welcome wallet bonus added.');
+      checkAuthState();
+      loadWalletData();
+      closeAuthModal();
+    } else {
+      showToast(data.message || 'Registration failed');
+    }
+  } catch(err) {
+    console.error(err);
+    showToast('Network error during registration');
+  }
+}
+
+// ================= TRIP HISTORY (Section 23 Future Features) =================
+
+async function openTripHistoryModal() {
+  document.getElementById('modal-trip-history').classList.remove('hidden');
+  await loadTripHistory();
+}
+
+function closeTripHistoryModal() {
+  document.getElementById('modal-trip-history').classList.add('hidden');
+}
+
+async function loadTripHistory() {
+  const container = document.getElementById('trip-history-list');
+  if (!container) return;
+
+  try {
+    const res = await fetch('/api/trips/history/user-p1', {
+      headers: getAuthHeader()
+    });
+    const data = await res.json();
+    if (data.success && data.trips.length > 0) {
+      container.innerHTML = data.trips.map(t => `
+        <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+          <div class="flex justify-between items-center">
+            <strong class="text-slate-900">${t.route_name || 'Nairobi Trip'}</strong>
+            <span class="text-emerald-700 font-bold">KSh ${t.fare_kes}</span>
+          </div>
+          <div class="text-slate-500 text-[11px]">
+            <span>${t.boarding_stop} &rarr; ${t.destination_stop}</span>
+          </div>
+          <div class="flex justify-between items-center pt-1 text-[10px] text-slate-400">
+            <span>Bus: <strong class="text-slate-700">${t.vehicle_reg}</strong> | Ref: ${t.mpesa_receipt}</span>
+            <span class="bg-emerald-100 text-emerald-800 font-semibold px-1.5 py-0.5 rounded">${t.status}</span>
+          </div>
+        </div>
+      `).join('');
+    } else {
+      container.innerHTML = '<div class="text-center text-slate-400 py-4">No past trips recorded yet.</div>';
+    }
+  } catch(err) {
+    console.error(err);
+  }
+}
+
+// ================= FAVORITE ROUTES (Section 23 Future Features) =================
+
+async function openFavoritesModal() {
+  document.getElementById('modal-favorites').classList.remove('hidden');
+  await loadFavorites();
+}
+
+function closeFavoritesModal() {
+  document.getElementById('modal-favorites').classList.add('hidden');
+}
+
+async function loadFavorites() {
+  const container = document.getElementById('favorites-list');
+  if (!container) return;
+
+  try {
+    const res = await fetch('/api/favorites/user-p1', {
+      headers: getAuthHeader()
+    });
+    const data = await res.json();
+    if (data.success && data.favorites.length > 0) {
+      container.innerHTML = data.favorites.map(f => `
+        <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex justify-between items-center">
+          <div>
+            <div class="font-bold text-slate-900 flex items-center gap-1.5">
+              <span>⭐</span> ${f.nickname}
+            </div>
+            <div class="text-slate-500 text-[11px]">${f.route_name}</div>
+            <div class="text-[10px] text-emerald-600 font-medium">Pickup: ${f.preferred_boarding_stop_name || 'Standard'}</div>
+          </div>
+          <div class="flex gap-2">
+            <button onclick="selectFavoriteRoute('${f.route_id}')" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-bold">
+              Ride
+            </button>
+            <button onclick="deleteFavorite('${f.id}')" class="text-rose-500 hover:text-rose-700 text-xs px-1">
+              &times;
+            </button>
+          </div>
+        </div>
+      `).join('');
+    } else {
+      container.innerHTML = '<div class="text-center text-slate-400 py-4">No favorite routes saved yet.</div>';
+    }
+  } catch(err) {
+    console.error(err);
+  }
+}
+
+async function saveCurrentRouteAsFavorite() {
+  const nickname = document.getElementById('fav-nickname-input').value.trim();
+  const routeId = state.selectedRouteId || (state.routes[0] && state.routes[0].id) || 'route-125';
+  const stopId = state.selectedBoardingStopId;
+
+  try {
+    const res = await fetch('/api/favorites/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify({ route_id: routeId, nickname, preferred_boarding_stop_id: stopId })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message);
+      document.getElementById('fav-nickname-input').value = '';
+      loadFavorites();
+    }
+  } catch(err) {
+    console.error(err);
+  }
+}
+
+async function deleteFavorite(id) {
+  try {
+    const res = await fetch(`/api/favorites/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeader()
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Favorite removed');
+      loadFavorites();
+    }
+  } catch(err) {
+    console.error(err);
+  }
+}
+
+function selectFavoriteRoute(routeId) {
+  closeFavoritesModal();
+  const select = document.getElementById('passenger-route-select');
+  if (select) {
+    select.value = routeId;
+    onRouteSelected();
+  }
+}
+
+// ================= CUSTOMER SUPPORT TICKETING (Section 23) =================
+
+async function openSupportModal() {
+  document.getElementById('modal-support').classList.remove('hidden');
+  await loadSupportTickets();
+}
+
+function closeSupportModal() {
+  document.getElementById('modal-support').classList.add('hidden');
+}
+
+async function loadSupportTickets() {
+  const container = document.getElementById('support-tickets-list');
+  if (!container) return;
+
+  try {
+    const res = await fetch('/api/support/tickets?user_id=user-p1', {
+      headers: getAuthHeader()
+    });
+    const data = await res.json();
+    if (data.success && data.tickets.length > 0) {
+      container.innerHTML = data.tickets.map(t => `
+        <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+          <div class="flex justify-between items-center">
+            <strong class="text-slate-900">${t.subject}</strong>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${t.status === 'resolved' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">
+              ${t.status.toUpperCase()}
+            </span>
+          </div>
+          <p class="text-slate-600 text-[11px]">${t.description}</p>
+          ${t.responses.length > 0 ? `
+            <div class="mt-2 pt-1 border-t space-y-1">
+              ${t.responses.map(r => `
+                <div class="text-[10px] bg-white p-1.5 rounded border border-slate-100">
+                  <strong class="text-emerald-700 capitalize">${r.sender}:</strong> ${r.message}
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+        </div>
+      `).join('');
+    } else {
+      container.innerHTML = '<div class="text-center text-slate-400 py-3">No active support tickets.</div>';
+    }
+  } catch(err) {
+    console.error(err);
+  }
+}
+
+async function submitSupportTicket() {
+  const cat = document.getElementById('sup-category').value;
+  const sub = document.getElementById('sup-subject').value.trim();
+  const desc = document.getElementById('sup-desc').value.trim();
+
+  if (!sub || !desc) {
+    showToast('Please enter subject and details');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/support/tickets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify({ category: cat, subject: sub, description: desc, phone: '0712345678' })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message);
+      document.getElementById('sup-subject').value = '';
+      document.getElementById('sup-desc').value = '';
+      loadSupportTickets();
+    }
+  } catch(err) {
+    console.error(err);
+  }
+}
+
+// ================= CORPORATE COMMUTER BOOKING (Section 23) =================
+
+function openCorporateModal() {
+  document.getElementById('modal-corporate').classList.remove('hidden');
+}
+
+function closeCorporateModal() {
+  document.getElementById('modal-corporate').classList.add('hidden');
+}
+
+async function bookWithCorporateInvoice() {
+  const corpId = document.getElementById('corp-select').value;
+  const empId = document.getElementById('corp-emp-id').value;
+  const name = document.getElementById('corp-passenger-name').value;
+  const vehicleId = state.selectedVehicle ? state.selectedVehicle.id : 'veh-1';
+  const routeId = state.selectedRouteId || 'route-125';
+
+  try {
+    const res = await fetch('/api/corporate/book', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify({
+        corporate_id: corpId,
+        employee_id: empId,
+        passenger_name: name,
+        vehicle_id: vehicleId,
+        route_id: routeId,
+        fare_amount: 100
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message);
+      closeCorporateModal();
+      checkExistingTicket(data.booking.id);
+    } else {
+      showToast(data.message || 'Corporate booking failed');
+    }
+  } catch(err) {
+    console.error(err);
+  }
+}
+
+// ================= AUTOMATED REVENUE SHARING (Section 23) =================
+
+async function loadRevenueShareData() {
+  try {
+    const res = await fetch(`/api/operator/revenue-share/${state.operatorId}`, {
+      headers: getAuthHeader()
+    });
+    const data = await res.json();
+    if (data.success && data.summary) {
+      const saccoEl = document.getElementById('revshare-sacco-net');
+      const platEl = document.getElementById('revshare-platform-fee');
+      const countyEl = document.getElementById('revshare-county-fee');
+
+      if (saccoEl) saccoEl.textContent = `KSh ${(data.summary.sacco_net_kes + 378250).toLocaleString()}`;
+      if (platEl) platEl.textContent = `KSh ${(data.summary.platform_fee_kes + 44500).toLocaleString()}`;
+      if (countyEl) countyEl.textContent = `KSh ${(data.summary.county_fee_kes + 22250).toLocaleString()}`;
+      showToast('Revenue split updated');
+    }
+  } catch(err) {
+    console.error(err);
+  }
+}
+

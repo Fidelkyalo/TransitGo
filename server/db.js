@@ -1,12 +1,14 @@
 // Database layer for Nairobi Local Bus & Matatu Platform
 // Implements tables: users, operators, drivers, vehicles, vehicle_seats, routes, route_stops, 
 // vehicle_routes, bookings, booking_seats, payments, vehicle_locations, tickets, notifications, 
-// fares, reviews, wallets, commuter_passes, lost_found, promo_codes, and audit_logs
+// fares, reviews, wallets, commuter_passes, lost_found, promo_codes, audit_logs,
+// trip_history, favorite_routes, support_tickets, revenue_shares, corporate_accounts, fare_rules, geofence_alerts
 
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import bcrypt from 'bcryptjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -39,6 +41,15 @@ class Database {
     this.lost_found = [];
     this.promo_codes = [];
     this.traffic_conditions = {};
+
+    // Security & Extended Platform Features
+    this.trip_history = [];
+    this.favorite_routes = [];
+    this.support_tickets = [];
+    this.revenue_shares = [];
+    this.corporate_accounts = [];
+    this.fare_rules = [];
+    this.geofence_alerts = [];
 
     this.ensureDataDir();
     this.loadFromDisk();
@@ -96,7 +107,14 @@ class Database {
         lost_found: this.lost_found,
         promo_codes: this.promo_codes,
         traffic_conditions: this.traffic_conditions,
-        audit_logs: this.audit_logs
+        audit_logs: this.audit_logs,
+        trip_history: this.trip_history,
+        favorite_routes: this.favorite_routes,
+        support_tickets: this.support_tickets,
+        revenue_shares: this.revenue_shares,
+        corporate_accounts: this.corporate_accounts,
+        fare_rules: this.fare_rules,
+        geofence_alerts: this.geofence_alerts
       };
       fs.writeFileSync(dbFilePath, JSON.stringify(snapshot, null, 2), 'utf8');
     } catch (err) {
@@ -110,7 +128,18 @@ class Database {
     }, 15000);
   }
 
+  hashPassword(password) {
+    return bcrypt.hashSync(password, 10);
+  }
+
+  verifyPassword(password, hash) {
+    if (!hash) return false;
+    return bcrypt.compareSync(password, hash);
+  }
+
   initSeedData() {
+    const defaultHash = this.hashPassword('Pass1234!');
+
     // 1. Operators (SACCOs)
     this.operators = [
       {
@@ -155,14 +184,16 @@ class Database {
       }
     ];
 
-    // 2. Users (Passenger, Driver, Conductor, Operator, Platform Admin)
+    // 2. Users (Passenger, Driver, Conductor, Operator, Platform Admin) with bcrypt password hashing
     this.users = [
       {
         id: 'user-p1',
         name: 'Brian Mwangi',
         phone: '0712345678',
         email: 'brian.mwangi@example.com',
+        password_hash: defaultHash,
         role: 'passenger',
+        status: 'active',
         created_at: new Date().toISOString()
       },
       {
@@ -170,7 +201,9 @@ class Database {
         name: 'Faith Achieng',
         phone: '0798765432',
         email: 'faith.achieng@example.com',
+        password_hash: defaultHash,
         role: 'passenger',
+        status: 'active',
         created_at: new Date().toISOString()
       },
       {
@@ -178,7 +211,10 @@ class Database {
         name: 'Kamau Njoroge',
         phone: '0722100200',
         email: 'kamau.driver@supermetro.co.ke',
+        password_hash: defaultHash,
         role: 'driver',
+        driver_auth_token: 'drv-token-kamau-2025',
+        status: 'active',
         created_at: new Date().toISOString()
       },
       {
@@ -186,7 +222,10 @@ class Database {
         name: 'Dennis Omondi',
         phone: '0722300400',
         email: 'dennis.conductor@supermetro.co.ke',
+        password_hash: defaultHash,
         role: 'conductor',
+        conductor_auth_token: 'cnd-token-dennis-2025',
+        status: 'active',
         created_at: new Date().toISOString()
       },
       {
@@ -194,8 +233,10 @@ class Database {
         name: 'Grace Wambui (Super Metro Ops)',
         phone: '0733555777',
         email: 'ops@supermetro.co.ke',
+        password_hash: defaultHash,
         role: 'operator',
         operator_id: 'op-1',
+        status: 'active',
         created_at: new Date().toISOString()
       },
       {
@@ -203,7 +244,9 @@ class Database {
         name: 'System Admin (NTSA/Admin)',
         phone: '0700000000',
         email: 'admin@nairobitransport.go.ke',
+        password_hash: defaultHash,
         role: 'admin',
+        status: 'active',
         created_at: new Date().toISOString()
       }
     ];
@@ -318,6 +361,7 @@ class Database {
         supports_seat_reservation: true,
         route_id: 'route-125',
         status: 'on_trip',
+        driver_secret: 'sec-kda123a',
         created_at: new Date().toISOString()
       },
       {
@@ -331,6 +375,7 @@ class Database {
         supports_seat_reservation: true,
         route_id: 'route-237',
         status: 'on_trip',
+        driver_secret: 'sec-kdc456b',
         created_at: new Date().toISOString()
       },
       {
@@ -344,6 +389,7 @@ class Database {
         supports_seat_reservation: false,
         route_id: 'route-106',
         status: 'on_trip',
+        driver_secret: 'sec-kcy789c',
         created_at: new Date().toISOString()
       },
       {
@@ -357,6 +403,7 @@ class Database {
         supports_seat_reservation: true,
         route_id: 'route-111',
         status: 'idle',
+        driver_secret: 'sec-kdd555d',
         created_at: new Date().toISOString()
       },
       {
@@ -370,6 +417,7 @@ class Database {
         supports_seat_reservation: true,
         route_id: 'route-119',
         status: 'on_trip',
+        driver_secret: 'sec-kdf888e',
         created_at: new Date().toISOString()
       }
     ];
@@ -467,6 +515,16 @@ class Database {
         transactions: [
           { id: 'tx-1', type: 'topup', amount: 1500, method: 'M-Pesa', receipt: 'QHJ123984', timestamp: new Date(Date.now() - 3600000).toISOString() },
           { id: 'tx-2', type: 'fare_deduction', amount: 100, route: 'Route 125', timestamp: new Date(Date.now() - 1800000).toISOString() }
+        ],
+        updated_at: new Date().toISOString()
+      },
+      {
+        id: 'wal-p2',
+        user_id: 'user-p2',
+        balance_kes: 820,
+        transactions: [
+          { id: 'tx-3', type: 'topup', amount: 1000, method: 'M-Pesa', receipt: 'QHJ998811', timestamp: new Date(Date.now() - 7200000).toISOString() },
+          { id: 'tx-4', type: 'fare_deduction', amount: 180, route: 'Route 237', timestamp: new Date(Date.now() - 3600000).toISOString() }
         ],
         updated_at: new Date().toISOString()
       }
@@ -573,6 +631,212 @@ class Database {
       'route-119': { condition: 'Moderate', delay_mins: 3, speed_multiplier: 0.9, alert: 'Two Rivers roundabout slow' },
       'route-100': { condition: 'Light', delay_mins: 0, speed_multiplier: 1.0, alert: 'Pangani flyover clear' }
     };
+
+    // 10. Trip History (Section 23 Future Features)
+    this.trip_history = [
+      {
+        id: 'trip-h1',
+        user_id: 'user-p1',
+        booking_id: sampleBookingId,
+        ticket_id: 'TCK-123456',
+        route_id: 'route-125',
+        route_number: '125',
+        route_name: 'CBD to Rongai via Langata Road',
+        vehicle_reg: 'KDA 123A',
+        boarding_stop: 'Nyayo National Stadium',
+        destination_stop: 'Ongata Rongai Maasai Mall',
+        seat_numbers: ['3A'],
+        fare_kes: 100,
+        payment_method: 'M-Pesa STK Push',
+        mpesa_receipt: 'QKJ8912741',
+        status: 'completed',
+        completed_at: new Date(Date.now() - 3600000).toISOString()
+      },
+      {
+        id: 'trip-h2',
+        user_id: 'user-p1',
+        booking_id: 'BK-098231',
+        ticket_id: 'TCK-872611',
+        route_id: 'route-237',
+        route_number: '237',
+        route_name: 'CBD to Thika via Thika Superhighway',
+        vehicle_reg: 'KDC 456B',
+        boarding_stop: 'CBD Commercial / Koja',
+        destination_stop: 'Roysambu (TRM Stage)',
+        seat_numbers: ['2B'],
+        fare_kes: 80,
+        payment_method: 'Wallet',
+        mpesa_receipt: 'WAL-TX-8812',
+        status: 'completed',
+        completed_at: new Date(Date.now() - 86400000).toISOString()
+      }
+    ];
+
+    // 11. Favorite Routes (Section 23 Future Features)
+    this.favorite_routes = [
+      {
+        id: 'fav-1',
+        user_id: 'user-p1',
+        route_id: 'route-125',
+        route_number: '125',
+        route_name: 'CBD to Rongai via Langata Road',
+        preferred_boarding_stop_id: 'stop-125-2',
+        preferred_boarding_stop_name: 'Nyayo National Stadium',
+        nickname: 'Daily Office Commute',
+        created_at: new Date(Date.now() - 172800000).toISOString()
+      },
+      {
+        id: 'fav-2',
+        user_id: 'user-p1',
+        route_id: 'route-237',
+        route_number: '237',
+        route_name: 'CBD to Thika via Thika Superhighway',
+        preferred_boarding_stop_id: 'stop-237-1',
+        preferred_boarding_stop_name: 'CBD Commercial / Koja',
+        nickname: 'Weekend Trip',
+        created_at: new Date(Date.now() - 86400000).toISOString()
+      }
+    ];
+
+    // 12. Customer Support Tickets (Section 23 Future Features)
+    this.support_tickets = [
+      {
+        id: 'SUP-40101',
+        user_id: 'user-p1',
+        user_name: 'Brian Mwangi',
+        user_phone: '0712345678',
+        category: 'payment',
+        subject: 'M-Pesa STK prompt delayed during peak hour',
+        description: 'At Kencom stage, the STK prompt took about 45 seconds to display on my phone.',
+        status: 'resolved',
+        priority: 'medium',
+        responses: [
+          { sender: 'support', message: 'Hello Brian, Safaricom gateway had a brief queuing period which cleared automatically. Your ticket was issued successfully.', created_at: new Date(Date.now() - 3600000).toISOString() }
+        ],
+        created_at: new Date(Date.now() - 7200000).toISOString(),
+        updated_at: new Date(Date.now() - 3600000).toISOString()
+      },
+      {
+        id: 'SUP-40102',
+        user_id: 'user-p2',
+        user_name: 'Faith Achieng',
+        user_phone: '0798765432',
+        category: 'lost_item',
+        subject: 'Inquiry regarding brown leather wallet',
+        description: 'Left on KDC 456B near Roysambu stage. Inquiring on depot status.',
+        status: 'open',
+        priority: 'high',
+        responses: [
+          { sender: 'support', message: 'Conductor Dennis has submitted the item to Thika Road depot. You may collect it with national ID.', created_at: new Date(Date.now() - 1800000).toISOString() }
+        ],
+        created_at: new Date(Date.now() - 3600000).toISOString(),
+        updated_at: new Date(Date.now() - 1800000).toISOString()
+      }
+    ];
+
+    // 13. Automated Revenue Sharing (Section 23 Future Features)
+    // Formula: 85% SACCO/Operator, 10% Platform Commission, 5% Nairobi County Transport Fee
+    this.revenue_shares = [
+      {
+        id: 'revshare-1',
+        booking_id: sampleBookingId,
+        gross_amount_kes: 100,
+        operator_id: 'op-2',
+        operator_amount_kes: 85,
+        platform_fee_kes: 10,
+        county_fee_kes: 5,
+        status: 'settled',
+        created_at: new Date().toISOString()
+      }
+    ];
+
+    // 14. Corporate Accounts (Section 23 Future Features)
+    this.corporate_accounts = [
+      {
+        id: 'corp-1',
+        company_name: 'Safaricom PLC Commuter Scheme',
+        registration_code: 'SAF-COMMUTE-2025',
+        contact_person: 'Mercy Njeri (HR Operations)',
+        contact_email: 'mercy.njeri@safaricom.co.ke',
+        contact_phone: '+254 722 000 111',
+        monthly_credit_limit_kes: 500000,
+        current_spent_kes: 142000,
+        billing_cycle: 'monthly_postpaid',
+        approved_routes: ['all'],
+        employees: [
+          { employee_id: 'EMP-014', name: 'Brian Mwangi', email: 'brian.mwangi@example.com', monthly_allowance_kes: 12000, spent_kes: 3400 },
+          { employee_id: 'EMP-088', name: 'Faith Achieng', email: 'faith.achieng@example.com', monthly_allowance_kes: 10000, spent_kes: 2800 }
+        ],
+        status: 'active',
+        created_at: new Date('2025-01-01T00:00:00Z').toISOString()
+      },
+      {
+        id: 'corp-2',
+        company_name: 'Equity Bank HQ Staff Transport',
+        registration_code: 'EQ-STAFF-2025',
+        contact_person: 'David Maina (Fleet & Admin)',
+        contact_email: 'd.maina@equitybank.co.ke',
+        contact_phone: '+254 763 000 222',
+        monthly_credit_limit_kes: 750000,
+        current_spent_kes: 215000,
+        billing_cycle: 'monthly_postpaid',
+        approved_routes: ['route-125', 'route-237', 'route-111'],
+        employees: [],
+        status: 'active',
+        created_at: new Date('2025-01-15T00:00:00Z').toISOString()
+      }
+    ];
+
+    // 15. Time-of-Day / Day-of-Week Fare Rules (Section 9 & 23 Dynamic Pricing)
+    this.fare_rules = [
+      {
+        id: 'rule-morning-peak',
+        name: 'Morning Peak Surge (06:30 - 09:00)',
+        applicable_days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+        start_time: '06:30',
+        end_time: '09:00',
+        surge_multiplier: 1.20,
+        flat_surge_kes: 0,
+        description: '20% surge during morning inbound city rush hour',
+        is_active: true
+      },
+      {
+        id: 'rule-evening-peak',
+        name: 'Evening Peak Surge (16:30 - 19:30)',
+        applicable_days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+        start_time: '16:30',
+        end_time: '19:30',
+        surge_multiplier: 1.20,
+        flat_surge_kes: 0,
+        description: '20% surge during evening outbound suburban rush hour',
+        is_active: true
+      },
+      {
+        id: 'rule-midday-discount',
+        name: 'Off-Peak Midday Saver (11:00 - 15:00)',
+        applicable_days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+        start_time: '11:00',
+        end_time: '15:00',
+        surge_multiplier: 0.85,
+        flat_surge_kes: 0,
+        description: '15% discount for midday leisure and errand travellers',
+        is_active: true
+      },
+      {
+        id: 'rule-weekend-flat',
+        name: 'Weekend Leisure Fare',
+        applicable_days: ['Saturday', 'Sunday'],
+        start_time: '00:00',
+        end_time: '23:59',
+        surge_multiplier: 0.90,
+        flat_surge_kes: 0,
+        description: '10% discount across all metropolitan weekend trips',
+        is_active: true
+      }
+    ];
+
+    // 16. Vehicle Geofence Proximity Alerts (Section 14 & 23)
+    this.geofence_alerts = [];
   }
 
   generateSeatsForVehicle(vehicle) {
@@ -713,6 +977,130 @@ class Database {
         this.logAudit('SEAT_AUTO_RELEASE', `Released ${releasedCount} expired seat lock(s)`);
       }
     }, 5000);
+  }
+
+  // Calculate dynamic fare based on route, stops, time of day and day of week
+  calculateDynamicFare(routeId, boardingStopId, destStopId, dateObj = new Date()) {
+    const route = this.routes.find(r => r.id === routeId);
+    if (!route) return 100;
+
+    let baseFare = route.base_fare;
+
+    // Check stop-level fares if both stops are provided
+    if (boardingStopId && destStopId) {
+      const bStop = this.route_stops.find(s => s.id === boardingStopId);
+      const dStop = this.route_stops.find(s => s.id === destStopId);
+      if (bStop && dStop) {
+        const fareDiff = Math.abs((dStop.fare_from_origin || baseFare) - (bStop.fare_from_origin || 0));
+        if (fareDiff > 0) {
+          baseFare = Math.max(30, fareDiff);
+        }
+      }
+    }
+
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const currentDay = dayNames[dateObj.getDay()];
+    const hours = dateObj.getHours().toString().padStart(2, '0');
+    const minutes = dateObj.getMinutes().toString().padStart(2, '0');
+    const currentTimeStr = `${hours}:${minutes}`;
+
+    let appliedRule = null;
+    let multiplier = 1.0;
+
+    for (const rule of this.fare_rules) {
+      if (!rule.is_active) continue;
+      if (rule.applicable_days.includes(currentDay)) {
+        if (currentTimeStr >= rule.start_time && currentTimeStr <= rule.end_time) {
+          appliedRule = rule;
+          multiplier = rule.surge_multiplier;
+          break;
+        }
+      }
+    }
+
+    const calculatedFare = Math.round(baseFare * multiplier);
+    return {
+      base_fare: baseFare,
+      final_fare: calculatedFare,
+      multiplier,
+      applied_rule: appliedRule ? appliedRule.name : 'Standard Fare',
+      is_peak: multiplier > 1.0,
+      is_discounted: multiplier < 1.0
+    };
+  }
+
+  // Automated Revenue Split: 85% SACCO / Operator, 10% Platform, 5% County Transport Fee
+  recordRevenueShare(bookingId, amount, operatorId) {
+    const gross = Number(amount);
+    const operatorAmount = Math.round(gross * 0.85);
+    const platformFee = Math.round(gross * 0.10);
+    const countyFee = gross - operatorAmount - platformFee;
+
+    const share = {
+      id: 'revshare-' + uuidv4().substring(0, 8),
+      booking_id: bookingId,
+      gross_amount_kes: gross,
+      operator_id: operatorId,
+      operator_amount_kes: operatorAmount,
+      platform_fee_kes: platformFee,
+      county_fee_kes: countyFee,
+      status: 'settled',
+      created_at: new Date().toISOString()
+    };
+
+    this.revenue_shares.push(share);
+    this.logAudit('REVENUE_SPLIT_RECORDED', `Split for booking ${bookingId}: SACCO KSh ${operatorAmount}, Platform KSh ${platformFee}, County KSh ${countyFee}`);
+    this.saveToDisk();
+    return share;
+  }
+
+  // Geofence Proximity Check: Triggers alert when vehicle is within 500m of passenger boarding stop
+  checkGeofenceAlerts(vehicleId, currentLat, currentLng, io) {
+    const vehicle = this.vehicles.find(v => v.id === vehicleId);
+    if (!vehicle) return;
+
+    // Check active bookings on this vehicle
+    const activeBookings = this.bookings.filter(b => b.vehicle_id === vehicleId && (b.booking_status === 'confirmed' || b.booking_status === 'pending_payment'));
+
+    for (const booking of activeBookings) {
+      const stop = this.route_stops.find(s => s.id === booking.boarding_stop_id);
+      if (!stop) continue;
+
+      // Distance calculation in meters
+      const R = 6371e3;
+      const phi1 = (currentLat * Math.PI) / 180;
+      const phi2 = (stop.lat * Math.PI) / 180;
+      const deltaPhi = ((stop.lat - currentLat) * Math.PI) / 180;
+      const deltaLambda = ((stop.lng - currentLng) * Math.PI) / 180;
+      const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) + Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      const distMeters = Math.round(R * c);
+
+      if (distMeters <= 500) {
+        const alertId = `alert-${vehicleId}-${booking.id}`;
+        const alreadyAlerted = this.geofence_alerts.some(a => a.id === alertId);
+        if (!alreadyAlerted) {
+          const alert = {
+            id: alertId,
+            booking_id: booking.id,
+            user_id: booking.user_id,
+            passenger_name: booking.passenger_name,
+            passenger_phone: booking.passenger_phone,
+            vehicle_reg: vehicle.registration_number,
+            stop_name: stop.name,
+            distance_meters: distMeters,
+            type: 'vehicle_approaching',
+            message: `Bus ${vehicle.registration_number} is approaching ${stop.name} (${distMeters} m away). Please be at your boarding stage!`,
+            created_at: new Date().toISOString()
+          };
+          this.geofence_alerts.unshift(alert);
+
+          if (io) {
+            io.emit('geofence:approaching', alert);
+          }
+        }
+      }
+    }
   }
 
   logAudit(action, details, actor = 'system') {

@@ -136,6 +136,9 @@ export class VehicleSimulator {
       this.io.to(`vehicle:${vehicleId}`).emit('vehicle:location_update', payload);
       this.io.to(`route:${vehicle.route_id}`).emit('vehicle:location_update', payload);
 
+      // Check geofence proximity alerts for approaching passengers
+      db.checkGeofenceAlerts(vehicleId, loc.lat, loc.lng, this.io);
+
     }, 3000); // Send updates every 3 seconds
 
     this.runningIntervals.set(vehicleId, intervalId);

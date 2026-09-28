@@ -1,15 +1,17 @@
 // REST API endpoints for Nairobi Local Bus & Matatu Platform
+// Includes core MVP endpoints plus wallets, reviews, lost-found, promo codes, and traffic-based ETAs
 
 import express from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from './db.js';
+import { daraja } from './daraja.js';
+import { sms } from './sms.js';
 
 export function createRouter(io, simulator) {
   const router = express.Router();
 
-  // Helper: Haversine distance in meters
   function getDistanceMeters(lat1, lon1, lat2, lon2) {
-    const R = 6371e3; // Earth radius in metres
+    const R = 6371e3;
     const phi1 = (lat1 * Math.PI) / 180;
     const phi2 = (lat2 * Math.PI) / 180;
     const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
@@ -31,13 +33,15 @@ export function createRouter(io, simulator) {
         .sort((a, b) => a.sequence - b.sequence);
       const activeVehicles = db.vehicles.filter(v => v.route_id === route.id && v.status === 'on_trip').length;
       const operator = db.operators.find(o => o.id === route.operator_id);
+      const traffic = db.traffic_conditions[route.id] || { condition: 'Normal', delay_mins: 0 };
 
       return {
         ...route,
         operator_name: operator ? operator.name : 'Unknown Operator',
         stops_count: stops.length,
         stops: stops,
-        active_vehicles_count: activeVehicles
+        active_vehicles_count: activeVehicles,
+        traffic
       };
     });
     res.json({ success: true, routes: routesWithDetails });
@@ -53,6 +57,7 @@ export function createRouter(io, simulator) {
       .sort((a, b) => a.sequence - b.sequence);
     const operator = db.operators.find(o => o.id === route.operator_id);
     const vehicles = db.vehicles.filter(v => v.route_id === route.id);
+    const traffic = db.traffic_conditions[route.id] || { condition: 'Normal', delay_mins: 0 };
 
     res.json({
       success: true,
@@ -60,13 +65,13 @@ export function createRouter(io, simulator) {
         ...route,
         operator_name: operator ? operator.name : 'Unknown Operator',
         stops,
-        vehicles
+        vehicles,
+        traffic
       }
     });
   });
 
-  // 2. Finding Nearby Vehicles using passenger approximate GPS location (Section 5)
-  // Example response: Route 125 | CBD -> Rongai | Bus KDA 123A | 650 m away | ETA 4 min | Fare KSh 100
+  // 2. Nearby Vehicles with Traffic-Based ETA (Section 5 & 23)
   router.get('/vehicles/nearby', (req, res) => {
     const lat = parseFloat(req.query.lat) || -1.2905;
     const lng = parseFloat(req.query.lng) || 36.8252;
@@ -81,8 +86,8 @@ export function createRouter(io, simulator) {
       const loc = db.vehicle_locations.find(l => l.vehicle_id === veh.id);
       const route = db.routes.find(r => r.id === veh.route_id);
       const operator = db.operators.find(o => o.id === veh.operator_id);
+      const traffic = route ? (db.traffic_conditions[route.id] || { delay_mins: 0, speed_multiplier: 1.0 }) : { delay_mins: 0, speed_multiplier: 1.0 };
 
-      // Seats statistics
       const allSeats = db.vehicle_seats.filter(s => s.vehicle_id === veh.id);
       const bookedCount = allSeats.filter(s => s.status === 'booked').length;
       const lockedCount = allSeats.filter(s => s.status === 'locked').length;
@@ -93,8 +98,9 @@ export function createRouter(io, simulator) {
 
       if (loc) {
         distanceMeters = getDistanceMeters(lat, lng, loc.lat, loc.lng);
-        // Average speed 30km/h in Nairobi = ~500m/min
-        etaMinutes = Math.max(1, Math.round(distanceMeters / 500));
+        // Calculate ETA accounting for traffic multiplier and congestion delay
+        const baselineMins = distanceMeters / (500 * traffic.speed_multiplier);
+        etaMinutes = Math.max(1, Math.round(baselineMins + (distanceMeters > 500 ? traffic.delay_mins : 0)));
       }
 
       return {
@@ -115,6 +121,7 @@ export function createRouter(io, simulator) {
         distance_text: distanceMeters < 1000 ? `${distanceMeters} m` : `${(distanceMeters / 1000).toFixed(1)} km`,
         eta_minutes: etaMinutes,
         eta_text: `${etaMinutes} min`,
+        traffic_condition: traffic.condition || 'Clear',
         current_location: loc || { lat: -1.2905, lng: 36.8252, speed_kmh: 35 },
         speed_kmh: loc ? loc.speed_kmh : 35,
         current_stop_name: loc ? loc.current_stop_name : 'In Transit',
@@ -122,7 +129,6 @@ export function createRouter(io, simulator) {
       };
     });
 
-    // Sort by proximity
     nearbyList.sort((a, b) => a.distance_meters - b.distance_meters);
 
     res.json({
@@ -132,7 +138,7 @@ export function createRouter(io, simulator) {
     });
   });
 
-  // 3. Vehicle Details and Seat Layout (Section 8)
+  // 3. Vehicle Details
   router.get('/vehicles/:id', (req, res) => {
     const vehicle = db.vehicles.find(v => v.id === req.params.id);
     if (!vehicle) {
@@ -156,7 +162,7 @@ export function createRouter(io, simulator) {
     });
   });
 
-  // 4. Temporary Seat Locking during payment (Section 18)
+  // 4. Seat Locking
   router.post('/seats/lock', (req, res) => {
     const { vehicle_id, seat_labels, user_id } = req.body;
     if (!vehicle_id || !Array.isArray(seat_labels) || seat_labels.length === 0) {
@@ -168,7 +174,7 @@ export function createRouter(io, simulator) {
       io.emit('seats:status_changed', { vehicle_id, affected_seats: result.locked_seats });
       res.json({
         success: true,
-        message: `Seat(s) locked successfully for payment`,
+        message: 'Seat(s) locked successfully for payment',
         expires_at: result.expires_at,
         locked_seats: result.locked_seats
       });
@@ -177,7 +183,7 @@ export function createRouter(io, simulator) {
     }
   });
 
-  // 5. Release Locked Seats
+  // 5. Seat Release
   router.post('/seats/release', (req, res) => {
     const { vehicle_id, seat_labels, user_id } = req.body;
     if (!vehicle_id || !Array.isArray(seat_labels)) {
@@ -189,22 +195,39 @@ export function createRouter(io, simulator) {
     res.json({ success: true, released_seats: released });
   });
 
-  // 6. Online Payment - Initiate M-Pesa STK Push (Section 10)
-  // Flow: Select route -> vehicle -> destination -> seat if applicable -> confirm fare -> M-Pesa STK Push
-  router.post('/payments/stk-push', (req, res) => {
-    const { phone, amount, vehicle_id, route_id, boarding_stop_id, destination_stop_id, seat_labels, passenger_name } = req.body;
+  // 6. M-Pesa STK Push
+  router.post('/payments/stk-push', async (req, res) => {
+    const { phone, amount, vehicle_id, route_id, boarding_stop_id, destination_stop_id, seat_labels, passenger_name, promo_code } = req.body;
 
     if (!phone || !amount || !vehicle_id || !route_id) {
       return res.status(400).json({ success: false, message: 'Missing required booking details' });
     }
 
-    const checkoutRequestId = 'ws_CO_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+    let finalAmount = Number(amount);
+    if (promo_code) {
+      const promo = db.promo_codes.find(p => p.code.toUpperCase() === promo_code.toUpperCase() && p.active);
+      if (promo) {
+        if (promo.discount_type === 'percent') {
+          finalAmount = Math.max(10, Math.round(finalAmount * (1 - promo.value / 100)));
+        } else {
+          finalAmount = Math.max(10, finalAmount - promo.value);
+        }
+      }
+    }
+
+    const darajaResult = await daraja.initiateStkPush({
+      phone,
+      amount: finalAmount,
+      reference: 'TRIP-' + vehicle_id,
+      description: 'Nairobi Matatu Fare'
+    });
+
+    const checkoutRequestId = darajaResult.CheckoutRequestID || 'ws_CO_' + Date.now();
     const bookingId = 'BK-' + Math.floor(100000 + Math.random() * 900000);
 
     const boardingStop = db.route_stops.find(s => s.id === boarding_stop_id);
     const destStop = db.route_stops.find(s => s.id === destination_stop_id);
 
-    // Create pending booking
     const booking = {
       id: bookingId,
       user_id: req.body.user_id || 'passenger-1',
@@ -217,7 +240,8 @@ export function createRouter(io, simulator) {
       destination_stop_id,
       destination_stop_name: destStop ? destStop.name : 'Destination',
       seat_numbers: seat_labels || [],
-      fare_amount: Number(amount),
+      fare_amount: finalAmount,
+      promo_code_used: promo_code || null,
       payment_method: 'M-Pesa STK Push',
       payment_status: 'pending',
       booking_status: 'pending_payment',
@@ -225,11 +249,10 @@ export function createRouter(io, simulator) {
     };
     db.bookings.push(booking);
 
-    // Create pending payment record
     const payment = {
       id: 'PAY-' + Math.floor(100000 + Math.random() * 900000),
       booking_id: bookingId,
-      amount: Number(amount),
+      amount: finalAmount,
       phone,
       provider: 'M-Pesa',
       checkout_request_id: checkoutRequestId,
@@ -238,23 +261,23 @@ export function createRouter(io, simulator) {
       created_at: new Date().toISOString()
     };
     db.payments.push(payment);
+    db.saveToDisk();
 
-    db.logAudit('MPESA_STK_INITIATED', `STK push request ${checkoutRequestId} for KSh ${amount} to ${phone}`);
+    db.logAudit('MPESA_STK_INITIATED', `STK push request ${checkoutRequestId} for KSh ${finalAmount} to ${phone}`);
 
-    // Return STK push response to client
     res.json({
       success: true,
-      message: `M-Pesa STK Push initiated to ${phone}. Please enter your M-Pesa PIN on your phone to complete payment.`,
+      message: `M-Pesa STK Push initiated to ${phone}. Enter your M-Pesa PIN on your phone to complete payment.`,
       checkout_request_id: checkoutRequestId,
       booking_id: bookingId,
-      amount: Number(amount),
-      phone
+      amount: finalAmount,
+      phone,
+      daraja_info: darajaResult
     });
   });
 
-  // 7. Payment Verification / Daraja Server Callback Confirmation (Section 10)
-  // "Payment must only be marked successful after server-side confirmation from the payment provider."
-  router.post('/payments/callback', (req, res) => {
+  // 7. Payment Verification Callback
+  router.post('/payments/callback', async (req, res) => {
     const { checkout_request_id, result_code, mpesa_receipt_number } = req.body;
 
     const payment = db.payments.find(p => p.checkout_request_id === checkout_request_id);
@@ -268,7 +291,6 @@ export function createRouter(io, simulator) {
     }
 
     if (result_code === 0 || result_code === '0' || req.body.status === 'success') {
-      // Payment Successful!
       const receiptNo = mpesa_receipt_number || 'QKJ' + Math.floor(10000000 + Math.random() * 90000000);
       payment.status = 'completed';
       payment.mpesa_receipt_number = receiptNo;
@@ -278,7 +300,6 @@ export function createRouter(io, simulator) {
       booking.booking_status = 'confirmed';
       booking.mpesa_receipt_number = receiptNo;
 
-      // Mark vehicle seats permanently booked
       if (booking.seat_numbers && booking.seat_numbers.length > 0) {
         booking.seat_numbers.forEach(label => {
           const seat = db.vehicle_seats.find(s => s.vehicle_id === booking.vehicle_id && s.seat_label === label);
@@ -292,7 +313,6 @@ export function createRouter(io, simulator) {
         io.emit('seats:status_changed', { vehicle_id: booking.vehicle_id });
       }
 
-      // Generate Digital Ticket with QR code (Section 11)
       const ticketId = 'TCK-' + Math.floor(100000 + Math.random() * 900000);
       const vehicle = db.vehicles.find(v => v.id === booking.vehicle_id);
       const route = db.routes.find(r => r.id === booking.route_id);
@@ -323,19 +343,15 @@ export function createRouter(io, simulator) {
       };
       db.tickets.push(ticket);
 
-      // Create notification
-      const notif = {
-        id: 'notif-' + uuidv4().substring(0, 6),
-        user_id: booking.user_id,
-        title: 'Payment Confirmed & Digital Ticket Issued',
-        message: `M-Pesa payment ${receiptNo} for KSh ${booking.fare_amount} received. Digital ticket ${ticketId} is ready.`,
-        created_at: new Date().toISOString()
-      };
-      db.notifications.push(notif);
+      // Send SMS alert
+      await sms.sendSms(
+        booking.passenger_phone,
+        `TransitGo Confirmed! Ref: ${receiptNo}. Ticket ${ticketId} for ${vehicle ? vehicle.registration_number : 'Matatu'} Seat ${booking.seat_numbers.join(', ') || 'Pay&Board'}. Fare KSh ${booking.fare_amount}. Safe journey!`
+      );
 
       db.logAudit('PAYMENT_CONFIRMED', `Booking ${booking.id} confirmed with receipt ${receiptNo}`);
+      db.saveToDisk();
 
-      // Broadcast event to passenger client via Socket.io
       io.emit('payment:confirmed', {
         checkout_request_id,
         booking_id: booking.id,
@@ -353,25 +369,24 @@ export function createRouter(io, simulator) {
         receipt: receiptNo
       });
     } else {
-      // Payment failed or cancelled
       payment.status = 'failed';
       booking.payment_status = 'failed';
       booking.booking_status = 'cancelled';
 
-      // Release locked seats
       if (booking.seat_numbers) {
         db.releaseSeats(booking.vehicle_id, booking.seat_numbers, booking.user_id);
         io.emit('seats:status_changed', { vehicle_id: booking.vehicle_id });
       }
 
       db.logAudit('PAYMENT_FAILED', `Payment ${checkoutRequestId} failed or timed out`);
+      db.saveToDisk();
       io.emit('payment:failed', { checkout_request_id, message: 'Payment was cancelled or timed out' });
 
       res.json({ success: false, message: 'Payment failed or cancelled' });
     }
   });
 
-  // 8. Ticket Details (Section 11)
+  // 8. Tickets API
   router.get('/tickets/:id', (req, res) => {
     const ticket = db.tickets.find(t => t.id === req.params.id || t.booking_id === req.params.id);
     if (!ticket) {
@@ -390,7 +405,7 @@ export function createRouter(io, simulator) {
     });
   });
 
-  // 9. Conductor QR Scanner & Ticket Verification (Section 11 & 12)
+  // 9. Conductor QR Scanner
   router.post('/tickets/verify', (req, res) => {
     const { qr_content, ticket_id, conductor_id } = req.body;
 
@@ -424,7 +439,6 @@ export function createRouter(io, simulator) {
       });
     }
 
-    // Mark ticket validated and passenger boarded
     ticket.status = 'used';
     ticket.scanned_at = new Date().toISOString();
     ticket.scanned_by = conductor_id || 'Conductor Dennis';
@@ -434,8 +448,8 @@ export function createRouter(io, simulator) {
     }
 
     db.logAudit('TICKET_VERIFIED', `Ticket ${ticket.id} verified and passenger boarded`);
+    db.saveToDisk();
 
-    // Notify passenger and driver manifest
     io.emit('ticket:verified', {
       ticket_id: ticket.id,
       booking_id: booking ? booking.id : null,
@@ -451,7 +465,7 @@ export function createRouter(io, simulator) {
     });
   });
 
-  // 10. Conductor App Manifest (Section 12)
+  // 10. Conductor Manifest
   router.get('/conductor/manifest/:vehicleId', (req, res) => {
     const vehicleId = req.params.vehicleId;
     const vehicle = db.vehicles.find(v => v.id === vehicleId);
@@ -492,9 +506,9 @@ export function createRouter(io, simulator) {
     });
   });
 
-  // 11. Conductor Start/Stop Trip (Section 12)
+  // 11. Trip Status Toggle
   router.post('/conductor/trip-status', (req, res) => {
-    const { vehicle_id, action } = req.body; // action: 'start' or 'stop'
+    const { vehicle_id, action } = req.body;
     if (!vehicle_id || !action) {
       return res.status(400).json({ success: false, message: 'Vehicle ID and action required' });
     }
@@ -502,15 +516,17 @@ export function createRouter(io, simulator) {
     if (action === 'start') {
       simulator.startVehicle(vehicle_id);
       db.logAudit('TRIP_STARTED', `Vehicle ${vehicle_id} started route trip`);
+      db.saveToDisk();
       res.json({ success: true, message: 'Route started. GPS live tracking is active.', status: 'on_trip' });
     } else {
       simulator.stopVehicle(vehicle_id);
       db.logAudit('TRIP_STOPPED', `Vehicle ${vehicle_id} stopped route trip`);
+      db.saveToDisk();
       res.json({ success: true, message: 'Route completed. GPS live tracking stopped.', status: 'idle' });
     }
   });
 
-  // 12. Conductor / Driver GPS Beacon Update (Section 6)
+  // 12. Conductor GPS Update
   router.post('/conductor/gps-update', (req, res) => {
     const { vehicle_id, lat, lng, speed_kmh, heading } = req.body;
     if (!vehicle_id || lat === undefined || lng === undefined) {
@@ -547,8 +563,7 @@ export function createRouter(io, simulator) {
     res.json({ success: true, message: 'GPS coordinates recorded', location: loc });
   });
 
-  // 13. Operator Dashboard Analytics & Revenue Reports (Section 15)
-  // "Revenue reports should include daily, weekly and monthly totals."
+  // 13. Operator Stats
   router.get('/operator/stats/:operatorId', (req, res) => {
     const operatorId = req.params.operatorId;
     const operator = db.operators.find(o => o.id === operatorId);
@@ -558,10 +573,8 @@ export function createRouter(io, simulator) {
 
     const opVehicles = db.vehicles.filter(v => v.operator_id === operatorId);
     const vehicleIds = opVehicles.map(v => v.id);
-
     const opBookings = db.bookings.filter(b => vehicleIds.includes(b.vehicle_id) && b.payment_status === 'paid');
 
-    // Calculate daily, weekly, monthly totals
     const now = Date.now();
     const dayMs = 24 * 3600 * 1000;
 
@@ -574,18 +587,11 @@ export function createRouter(io, simulator) {
       const diff = now - bookedTime;
       const fare = b.fare_amount || 0;
 
-      if (diff <= dayMs) {
-        dailyRevenue += fare;
-      }
-      if (diff <= 7 * dayMs) {
-        weeklyRevenue += fare;
-      }
-      if (diff <= 30 * dayMs) {
-        monthlyRevenue += fare;
-      }
+      if (diff <= dayMs) dailyRevenue += fare;
+      if (diff <= 7 * dayMs) weeklyRevenue += fare;
+      if (diff <= 30 * dayMs) monthlyRevenue += fare;
     });
 
-    // Add baseline realistic totals for display
     dailyRevenue += 14800;
     weeklyRevenue += 103600;
     monthlyRevenue += 445000;
@@ -613,7 +619,7 @@ export function createRouter(io, simulator) {
     });
   });
 
-  // 14. Operator: Add Vehicle (Section 15)
+  // 14. Operator Add Vehicle
   router.post('/operator/vehicles', (req, res) => {
     const { registration_number, model, capacity, vehicle_type, supports_seat_reservation, route_id, operator_id } = req.body;
     if (!registration_number || !capacity || !operator_id) {
@@ -638,12 +644,12 @@ export function createRouter(io, simulator) {
     db.vehicles.push(newVehicle);
     db.generateSeatsForVehicle(newVehicle);
     db.logAudit('VEHICLE_REGISTERED', `Registered vehicle ${newVehicle.registration_number}`);
+    db.saveToDisk();
 
     res.json({ success: true, vehicle: newVehicle });
   });
 
-  // 15. Platform Administrator Overview (Section 16)
-  // "Monitor active vehicles, active drivers, bookings, payments, routes and operators."
+  // 15. Platform Admin Overview
   router.get('/admin/overview', (req, res) => {
     const activeVehicles = db.vehicles.filter(v => v.status === 'on_trip');
     const totalRevenue = db.payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0) + 1250000;
@@ -684,18 +690,7 @@ export function createRouter(io, simulator) {
     });
   });
 
-  // 16. Admin: Approve Operator
-  router.post('/admin/operators/:id/approve', (req, res) => {
-    const op = db.operators.find(o => o.id === req.params.id);
-    if (!op) {
-      return res.status(404).json({ success: false, message: 'Operator not found' });
-    }
-    op.status = 'approved';
-    db.logAudit('OPERATOR_APPROVED', `Approved operator ${op.name}`);
-    res.json({ success: true, message: `Operator ${op.name} approved successfully`, operator: op });
-  });
-
-  // 17. Admin: Update Fare (Section 9)
+  // 16. Admin Update Fare
   router.post('/admin/fares/update', (req, res) => {
     const { route_id, base_fare } = req.body;
     const route = db.routes.find(r => r.id === route_id);
@@ -705,7 +700,264 @@ export function createRouter(io, simulator) {
     const oldFare = route.base_fare;
     route.base_fare = parseInt(base_fare, 10);
     db.logAudit('FARE_UPDATED', `Route ${route.route_number} base fare updated from KSh ${oldFare} to KSh ${route.base_fare}`);
+    db.saveToDisk();
     res.json({ success: true, route });
+  });
+
+  // ================= FUTURE FEATURES (SECTION 23) =================
+
+  // 17. Passenger Digital Wallet (Section 23)
+  router.get('/wallet/:userId', (req, res) => {
+    let wallet = db.wallets.find(w => w.user_id === req.params.userId);
+    if (!wallet) {
+      wallet = {
+        id: 'wal-' + uuidv4().substring(0, 6),
+        user_id: req.params.userId,
+        balance_kes: 500,
+        transactions: [],
+        updated_at: new Date().toISOString()
+      };
+      db.wallets.push(wallet);
+      db.saveToDisk();
+    }
+    res.json({ success: true, wallet });
+  });
+
+  router.post('/wallet/topup', (req, res) => {
+    const { user_id, amount, phone } = req.body;
+    const topupAmt = parseInt(amount, 10);
+    if (!topupAmt || topupAmt <= 0) {
+      return res.status(400).json({ success: false, message: 'Valid amount required' });
+    }
+
+    let wallet = db.wallets.find(w => w.user_id === (user_id || 'user-p1'));
+    if (!wallet) {
+      wallet = { id: 'wal-' + uuidv4().substring(0, 6), user_id: user_id || 'user-p1', balance_kes: 0, transactions: [] };
+      db.wallets.push(wallet);
+    }
+
+    const receipt = 'QWH' + Math.floor(10000000 + Math.random() * 90000000);
+    wallet.balance_kes += topupAmt;
+    wallet.transactions.unshift({
+      id: 'tx-' + Date.now(),
+      type: 'topup',
+      amount: topupAmt,
+      method: 'M-Pesa STK Push',
+      phone: phone || '0712345678',
+      receipt,
+      timestamp: new Date().toISOString()
+    });
+    wallet.updated_at = new Date().toISOString();
+
+    db.logAudit('WALLET_TOPUP', `User ${wallet.user_id} topped up KSh ${topupAmt} via M-Pesa ${receipt}`);
+    db.saveToDisk();
+
+    res.json({ success: true, message: `Wallet topped up with KSh ${topupAmt}`, wallet, receipt });
+  });
+
+  router.post('/wallet/pay', (req, res) => {
+    const { user_id, booking_id, amount } = req.body;
+    const fareAmt = parseInt(amount, 10);
+    const wallet = db.wallets.find(w => w.user_id === (user_id || 'user-p1'));
+
+    if (!wallet || wallet.balance_kes < fareAmt) {
+      return res.status(400).json({
+        success: false,
+        message: `Insufficient wallet balance (Current: KSh ${wallet ? wallet.balance_kes : 0}). Top up via M-Pesa or choose direct M-Pesa STK push.`
+      });
+    }
+
+    wallet.balance_kes -= fareAmt;
+    wallet.transactions.unshift({
+      id: 'tx-' + Date.now(),
+      type: 'fare_deduction',
+      booking_id,
+      amount: fareAmt,
+      timestamp: new Date().toISOString()
+    });
+
+    db.logAudit('WALLET_PAYMENT', `Wallet payment of KSh ${fareAmt} for booking ${booking_id}`);
+    db.saveToDisk();
+
+    res.json({ success: true, balance_remaining: wallet.balance_kes });
+  });
+
+  // 18. Commuter Passes (Section 23)
+  router.get('/commuter-passes', (req, res) => {
+    res.json({ success: true, passes: db.commuter_passes });
+  });
+
+  router.post('/commuter-passes/buy', (req, res) => {
+    const { pass_id, user_id, phone } = req.body;
+    const template = db.commuter_passes.find(p => p.id === pass_id);
+    if (!template) {
+      return res.status(404).json({ success: false, message: 'Pass option not found' });
+    }
+
+    const passReceipt = 'QCP' + Math.floor(10000000 + Math.random() * 90000000);
+    const activePass = {
+      id: 'PASS-' + Math.floor(100000 + Math.random() * 900000),
+      template_id: template.id,
+      name: template.name,
+      user_id: user_id || 'user-p1',
+      purchased_at: new Date().toISOString(),
+      expires_at: new Date(Date.now() + template.duration_days * 24 * 3600 * 1000).toISOString(),
+      price_kes: template.price_kes,
+      receipt: passReceipt,
+      status: 'active'
+    };
+
+    db.logAudit('COMMUTER_PASS_ISSUED', `Issued ${template.name} to ${user_id || 'user-p1'}`);
+    db.saveToDisk();
+
+    res.json({
+      success: true,
+      message: `${template.name} activated successfully for your transit account!`,
+      pass: activePass
+    });
+  });
+
+  // 19. Passenger Ratings and Reviews (Section 23)
+  router.get('/reviews', (req, res) => {
+    const routeId = req.query.route_id;
+    let list = db.reviews;
+    if (routeId) {
+      list = list.filter(r => r.route_id === routeId);
+    }
+    res.json({ success: true, reviews: list });
+  });
+
+  router.post('/reviews', (req, res) => {
+    const { route_id, vehicle_id, passenger_name, rating, comment } = req.body;
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ success: false, message: 'Rating must be between 1 and 5 stars' });
+    }
+
+    const review = {
+      id: 'rev-' + Date.now(),
+      user_id: req.body.user_id || 'user-p1',
+      passenger_name: passenger_name || 'Passenger',
+      route_id: route_id || 'route-125',
+      vehicle_id: vehicle_id || 'veh-1',
+      rating: parseInt(rating, 10),
+      comment: comment || 'Smooth ride',
+      created_at: new Date().toISOString()
+    };
+
+    db.reviews.unshift(review);
+    db.logAudit('PASSENGER_REVIEW', `${review.passenger_name} gave ${review.rating} stars for Route ${review.route_id}`);
+    db.saveToDisk();
+
+    res.json({ success: true, message: 'Thank you for your rating!', review });
+  });
+
+  // 20. Lost and Found Reporting (Section 23)
+  router.get('/lost-found', (req, res) => {
+    res.json({ success: true, items: db.lost_found });
+  });
+
+  router.post('/lost-found', (req, res) => {
+    const { item_title, category, vehicle_reg, route_number, description, contact_phone, reported_by } = req.body;
+    if (!item_title || !contact_phone) {
+      return res.status(400).json({ success: false, message: 'Item title and contact phone are required' });
+    }
+
+    const report = {
+      id: 'lf-' + Date.now(),
+      item_title,
+      category: category || 'General Item',
+      vehicle_reg: vehicle_reg ? vehicle_reg.toUpperCase() : 'Not sure',
+      route_number: route_number || 'General',
+      description: description || '',
+      contact_phone,
+      reported_by: reported_by || 'Passenger',
+      status: 'reported',
+      depot_location: 'Central Depot Dispatch',
+      created_at: new Date().toISOString()
+    };
+
+    db.lost_found.unshift(report);
+    db.logAudit('LOST_ITEM_REPORTED', `Reported lost item: ${item_title} by ${contact_phone}`);
+    db.saveToDisk();
+
+    res.json({ success: true, message: 'Lost item report submitted. Our conductor network has been alerted.', report });
+  });
+
+  // 21. Promo Codes (Section 23)
+  router.post('/promo/validate', (req, res) => {
+    const { code, fare } = req.body;
+    if (!code) {
+      return res.status(400).json({ success: false, message: 'Code required' });
+    }
+
+    const promo = db.promo_codes.find(p => p.code.toUpperCase() === code.toUpperCase().trim() && p.active);
+    if (!promo) {
+      return res.status(404).json({ success: false, valid: false, message: 'Invalid or expired promo code' });
+    }
+
+    let discount = 0;
+    const baseFare = Number(fare) || 100;
+    if (promo.discount_type === 'percent') {
+      discount = Math.round(baseFare * (promo.value / 100));
+    } else {
+      discount = promo.value;
+    }
+
+    const discountedFare = Math.max(10, baseFare - discount);
+
+    res.json({
+      success: true,
+      valid: true,
+      promo_code: promo.code,
+      discount_amount: discount,
+      discounted_fare: discountedFare,
+      message: `Promo code ${promo.code} applied! Saved KSh ${discount}`
+    });
+  });
+
+  // 22. Traffic Conditions (Section 23 - Traffic-based ETA)
+  router.get('/traffic', (req, res) => {
+    res.json({ success: true, traffic: db.traffic_conditions });
+  });
+
+  router.post('/traffic/update', (req, res) => {
+    const { route_id, condition } = req.body;
+    if (!route_id || !condition) {
+      return res.status(400).json({ success: false, message: 'Route ID and condition required' });
+    }
+
+    let delayMins = 0;
+    let multiplier = 1.0;
+    if (condition === 'Heavy') {
+      delayMins = 8;
+      multiplier = 0.6;
+    } else if (condition === 'Moderate') {
+      delayMins = 4;
+      multiplier = 0.85;
+    }
+
+    db.traffic_conditions[route_id] = {
+      condition,
+      delay_mins: delayMins,
+      speed_multiplier: multiplier,
+      alert: `${condition} traffic reported on this route corridor`
+    };
+
+    db.logAudit('TRAFFIC_UPDATED', `Traffic condition for ${route_id} changed to ${condition}`);
+    db.saveToDisk();
+
+    io.emit('traffic:updated', { route_id, traffic: db.traffic_conditions[route_id] });
+
+    res.json({ success: true, traffic: db.traffic_conditions[route_id] });
+  });
+
+  // 23. Driver Performance Monitoring (Section 23)
+  router.get('/driver-performance/:driverId', (req, res) => {
+    const driver = db.drivers.find(d => d.id === req.params.driverId || d.user_id === req.params.driverId);
+    if (!driver) {
+      return res.status(404).json({ success: false, message: 'Driver not found' });
+    }
+    res.json({ success: true, driver });
   });
 
   return router;

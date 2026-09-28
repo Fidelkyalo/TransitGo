@@ -1,8 +1,17 @@
 // Database layer for Nairobi Local Bus & Matatu Platform
-// Contains tables: users, operators, drivers, vehicles, vehicle_seats, routes, route_stops, 
-// vehicle_routes, bookings, booking_seats, payments, vehicle_locations, tickets, notifications, fares, reviews
+// Implements tables: users, operators, drivers, vehicles, vehicle_seats, routes, route_stops, 
+// vehicle_routes, bookings, booking_seats, payments, vehicle_locations, tickets, notifications, 
+// fares, reviews, wallets, commuter_passes, lost_found, promo_codes, and audit_logs
 
 import { v4 as uuidv4 } from 'uuid';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const dataDir = path.resolve(__dirname, '../data');
+const dbFilePath = path.join(dataDir, 'database.json');
 
 class Database {
   constructor() {
@@ -23,9 +32,82 @@ class Database {
     this.fares = [];
     this.reviews = [];
     this.audit_logs = [];
+    
+    // Future Features (Section 23)
+    this.wallets = [];
+    this.commuter_passes = [];
+    this.lost_found = [];
+    this.promo_codes = [];
+    this.traffic_conditions = {};
 
-    this.initSeedData();
+    this.ensureDataDir();
+    this.loadFromDisk();
     this.startSeatExpirationWorker();
+    this.startPeriodicDiskSync();
+  }
+
+  ensureDataDir() {
+    if (!fs.existsSync(dataDir)) {
+      try {
+        fs.mkdirSync(dataDir, { recursive: true });
+      } catch (err) {
+        console.error('Could not create data directory:', err);
+      }
+    }
+  }
+
+  loadFromDisk() {
+    if (fs.existsSync(dbFilePath)) {
+      try {
+        const raw = fs.readFileSync(dbFilePath, 'utf8');
+        const parsed = JSON.parse(raw);
+        Object.assign(this, parsed);
+        return;
+      } catch (err) {
+        console.error('Error reading database file, re-initializing seeds:', err);
+      }
+    }
+    this.initSeedData();
+    this.saveToDisk();
+  }
+
+  saveToDisk() {
+    try {
+      this.ensureDataDir();
+      const snapshot = {
+        operators: this.operators,
+        users: this.users,
+        drivers: this.drivers,
+        vehicles: this.vehicles,
+        vehicle_seats: this.vehicle_seats,
+        routes: this.routes,
+        route_stops: this.route_stops,
+        vehicle_routes: this.vehicle_routes,
+        bookings: this.bookings,
+        booking_seats: this.booking_seats,
+        payments: this.payments,
+        vehicle_locations: this.vehicle_locations,
+        tickets: this.tickets,
+        notifications: this.notifications,
+        fares: this.fares,
+        reviews: this.reviews,
+        wallets: this.wallets,
+        commuter_passes: this.commuter_passes,
+        lost_found: this.lost_found,
+        promo_codes: this.promo_codes,
+        traffic_conditions: this.traffic_conditions,
+        audit_logs: this.audit_logs
+      };
+      fs.writeFileSync(dbFilePath, JSON.stringify(snapshot, null, 2), 'utf8');
+    } catch (err) {
+      console.error('Error writing database snapshot to disk:', err);
+    }
+  }
+
+  startPeriodicDiskSync() {
+    setInterval(() => {
+      this.saveToDisk();
+    }, 15000);
   }
 
   initSeedData() {
@@ -73,7 +155,7 @@ class Database {
       }
     ];
 
-    // 2. Users (Passengers, Drivers, Conductor, Operator Admins, Platform Admins)
+    // 2. Users (Passenger, Driver, Conductor, Operator, Platform Admin)
     this.users = [
       {
         id: 'user-p1',
@@ -127,12 +209,6 @@ class Database {
     ];
 
     // 3. Routes & Route Stops
-    // Route 125: CBD -> Rongai
-    // Route 111: CBD -> Ngong
-    // Route 237: CBD -> Thika
-    // Route 106: CBD -> Kikuyu
-    // Route 119: CBD -> Ruaka
-    // Route 100: CBD -> Kiambu
     this.routes = [
       {
         id: 'route-125',
@@ -208,9 +284,8 @@ class Database {
       }
     ];
 
-    // Route Stops with precise Nairobi GPS coordinates
+    // Stops
     this.route_stops = [
-      // Route 125 Stops
       { id: 'stop-125-1', route_id: 'route-125', name: 'CBD Railways Bus Station', sequence: 1, lat: -1.2905, lng: 36.8252, fare_from_origin: 0, eta_mins_from_origin: 0 },
       { id: 'stop-125-2', route_id: 'route-125', name: 'Nyayo National Stadium', sequence: 2, lat: -1.3039, lng: 36.8243, fare_from_origin: 50, eta_mins_from_origin: 8 },
       { id: 'stop-125-3', route_id: 'route-125', name: 'Wilson Airport Stage', sequence: 3, lat: -1.3216, lng: 36.8148, fare_from_origin: 70, eta_mins_from_origin: 15 },
@@ -219,7 +294,6 @@ class Database {
       { id: 'stop-125-6', route_id: 'route-125', name: 'Bomas of Kenya / Karen Road', sequence: 6, lat: -1.3400, lng: 36.7640, fare_from_origin: 90, eta_mins_from_origin: 36 },
       { id: 'stop-125-7', route_id: 'route-125', name: 'Ongata Rongai Maasai Mall', sequence: 7, lat: -1.3965, lng: 36.7610, fare_from_origin: 100, eta_mins_from_origin: 45 },
 
-      // Route 237 Stops (Thika Superhighway)
       { id: 'stop-237-1', route_id: 'route-237', name: 'CBD Commercial / Koja', sequence: 1, lat: -1.2818, lng: 36.8223, fare_from_origin: 0, eta_mins_from_origin: 0 },
       { id: 'stop-237-2', route_id: 'route-237', name: 'Ngara Stage', sequence: 2, lat: -1.2740, lng: 36.8290, fare_from_origin: 40, eta_mins_from_origin: 6 },
       { id: 'stop-237-3', route_id: 'route-237', name: 'Muthaiga Footbridge', sequence: 3, lat: -1.2592, lng: 36.8375, fare_from_origin: 50, eta_mins_from_origin: 12 },
@@ -228,33 +302,10 @@ class Database {
       { id: 'stop-237-6', route_id: 'route-237', name: 'Kasarani Sports Stadium', sequence: 6, lat: -1.2227, lng: 36.8970, fare_from_origin: 80, eta_mins_from_origin: 30 },
       { id: 'stop-237-7', route_id: 'route-237', name: 'Kenyatta University (KU)', sequence: 7, lat: -1.1810, lng: 36.9320, fare_from_origin: 90, eta_mins_from_origin: 36 },
       { id: 'stop-237-8', route_id: 'route-237', name: 'Juja Flyover (JKUAT)', sequence: 8, lat: -1.1018, lng: 37.0144, fare_from_origin: 100, eta_mins_from_origin: 44 },
-      { id: 'stop-237-9', route_id: 'route-237', name: 'Thika Town Main Stage', sequence: 9, lat: -1.0396, lng: 37.0700, fare_from_origin: 120, eta_mins_from_origin: 52 },
-
-      // Route 106 Stops (Waiyaki Way -> Kikuyu)
-      { id: 'stop-106-1', route_id: 'route-106', name: 'CBD Khoja Roundabout', sequence: 1, lat: -1.2818, lng: 36.8223, fare_from_origin: 0, eta_mins_from_origin: 0 },
-      { id: 'stop-106-2', route_id: 'route-106', name: 'Westlands Bus Park', sequence: 2, lat: -1.2654, lng: 36.8046, fare_from_origin: 40, eta_mins_from_origin: 8 },
-      { id: 'stop-106-3', route_id: 'route-106', name: 'Kangemi Stage', sequence: 3, lat: -1.2642, lng: 36.7483, fare_from_origin: 60, eta_mins_from_origin: 18 },
-      { id: 'stop-106-4', route_id: 'route-106', name: 'Uthiru Shopping Centre', sequence: 4, lat: -1.2580, lng: 36.7190, fare_from_origin: 70, eta_mins_from_origin: 26 },
-      { id: 'stop-106-5', route_id: 'route-106', name: 'Kikuyu Railway Stage', sequence: 5, lat: -1.2464, lng: 36.6631, fare_from_origin: 90, eta_mins_from_origin: 40 },
-
-      // Route 111 Stops (Ngong Road)
-      { id: 'stop-111-1', route_id: 'route-111', name: 'CBD Railways Station', sequence: 1, lat: -1.2905, lng: 36.8252, fare_from_origin: 0, eta_mins_from_origin: 0 },
-      { id: 'stop-111-2', route_id: 'route-111', name: 'Prestige Plaza Stage', sequence: 2, lat: -1.3005, lng: 36.7865, fare_from_origin: 50, eta_mins_from_origin: 12 },
-      { id: 'stop-111-3', route_id: 'route-111', name: 'Junction Mall Stage', sequence: 3, lat: -1.2985, lng: 36.7625, fare_from_origin: 70, eta_mins_from_origin: 22 },
-      { id: 'stop-111-4', route_id: 'route-111', name: 'Karen Roundabout', sequence: 4, lat: -1.3204, lng: 36.7067, fare_from_origin: 90, eta_mins_from_origin: 36 },
-      { id: 'stop-111-5', route_id: 'route-111', name: 'Ngong Town Terminus', sequence: 5, lat: -1.3615, lng: 36.6566, fare_from_origin: 120, eta_mins_from_origin: 50 },
-
-      // Route 119 Stops (Ruaka)
-      { id: 'stop-119-1', route_id: 'route-119', name: 'CBD Khoja Terminus', sequence: 1, lat: -1.2818, lng: 36.8223, fare_from_origin: 0, eta_mins_from_origin: 0 },
-      { id: 'stop-119-2', route_id: 'route-119', name: 'Parklands Avenue 4', sequence: 2, lat: -1.2610, lng: 36.8180, fare_from_origin: 40, eta_mins_from_origin: 10 },
-      { id: 'stop-119-3', route_id: 'route-119', name: 'Gigiri (UN Complex)', sequence: 3, lat: -1.2338, lng: 36.8042, fare_from_origin: 60, eta_mins_from_origin: 20 },
-      { id: 'stop-119-4', route_id: 'route-119', name: 'Two Rivers Mall', sequence: 4, lat: -1.2150, lng: 36.7910, fare_from_origin: 70, eta_mins_from_origin: 28 },
-      { id: 'stop-119-5', route_id: 'route-119', name: 'Ruaka Town Terminus', sequence: 5, lat: -1.2052, lng: 36.7788, fare_from_origin: 80, eta_mins_from_origin: 34 }
+      { id: 'stop-237-9', route_id: 'route-237', name: 'Thika Town Main Stage', sequence: 9, lat: -1.0396, lng: 37.0700, fare_from_origin: 120, eta_mins_from_origin: 52 }
     ];
 
-    // 4. Vehicles
-    // Supports 14-seater matatu, 33-seater bus, and 51-seater bus
-    // Features reserved seating flag, operator, capacity
+    // Vehicles
     this.vehicles = [
       {
         id: 'veh-1',
@@ -290,7 +341,7 @@ class Database {
         model: 'Toyota HiAce 14-Seater Matatu',
         capacity: 14,
         vehicle_type: 'matatu_14',
-        supports_seat_reservation: false, // pay & board mode demonstration
+        supports_seat_reservation: false,
         route_id: 'route-106',
         status: 'on_trip',
         created_at: new Date().toISOString()
@@ -323,12 +374,11 @@ class Database {
       }
     ];
 
-    // 5. Generate vehicle seats
     this.vehicles.forEach(vehicle => {
       this.generateSeatsForVehicle(vehicle);
     });
 
-    // 6. Drivers & Conductors
+    // Drivers
     this.drivers = [
       {
         id: 'drv-1',
@@ -338,6 +388,9 @@ class Database {
         license_number: 'DL-NAI-99214',
         operator_id: 'op-2',
         assigned_vehicle_id: 'veh-1',
+        safety_score: 98,
+        on_time_rate: 96,
+        trips_completed: 1420,
         status: 'active'
       },
       {
@@ -348,74 +401,23 @@ class Database {
         license_number: 'DL-NAI-77142',
         operator_id: 'op-1',
         assigned_vehicle_id: 'veh-2',
-        status: 'active'
-      },
-      {
-        id: 'drv-3',
-        user_id: 'user-d3',
-        name: 'Hassan Otieno',
-        phone: '0723888999',
-        license_number: 'DL-NAI-55112',
-        operator_id: 'op-4',
-        assigned_vehicle_id: 'veh-3',
+        safety_score: 95,
+        on_time_rate: 93,
+        trips_completed: 980,
         status: 'active'
       }
     ];
 
-    // 7. Vehicle Live Locations (current coordinate, heading, speed, next stop)
+    // Live locations
     this.vehicle_locations = [
-      {
-        vehicle_id: 'veh-1',
-        lat: -1.3039,
-        lng: 36.8243,
-        speed_kmh: 38,
-        heading: 200,
-        current_stop_id: 'stop-125-2',
-        next_stop_id: 'stop-125-3',
-        route_id: 'route-125',
-        is_active: true,
-        updated_at: new Date().toISOString()
-      },
-      {
-        vehicle_id: 'veh-2',
-        lat: -1.2592,
-        lng: 36.8375,
-        speed_kmh: 48,
-        heading: 45,
-        current_stop_id: 'stop-237-3',
-        next_stop_id: 'stop-237-4',
-        route_id: 'route-237',
-        is_active: true,
-        updated_at: new Date().toISOString()
-      },
-      {
-        vehicle_id: 'veh-3',
-        lat: -1.2654,
-        lng: 36.8046,
-        speed_kmh: 30,
-        heading: 280,
-        current_stop_id: 'stop-106-2',
-        next_stop_id: 'stop-106-3',
-        route_id: 'route-106',
-        is_active: true,
-        updated_at: new Date().toISOString()
-      },
-      {
-        vehicle_id: 'veh-5',
-        lat: -1.2610,
-        lng: 36.8180,
-        speed_kmh: 34,
-        heading: 350,
-        current_stop_id: 'stop-119-2',
-        next_stop_id: 'stop-119-3',
-        route_id: 'route-119',
-        is_active: true,
-        updated_at: new Date().toISOString()
-      }
+      { vehicle_id: 'veh-1', lat: -1.3039, lng: 36.8243, speed_kmh: 38, heading: 200, current_stop_id: 'stop-125-2', next_stop_id: 'stop-125-3', route_id: 'route-125', is_active: true, updated_at: new Date().toISOString() },
+      { vehicle_id: 'veh-2', lat: -1.2592, lng: 36.8375, speed_kmh: 48, heading: 45, current_stop_id: 'stop-237-3', next_stop_id: 'stop-237-4', route_id: 'route-237', is_active: true, updated_at: new Date().toISOString() },
+      { vehicle_id: 'veh-3', lat: -1.2654, lng: 36.8046, speed_kmh: 30, heading: 280, current_stop_id: 'stop-106-2', next_stop_id: 'stop-106-3', route_id: 'route-106', is_active: true, updated_at: new Date().toISOString() },
+      { vehicle_id: 'veh-5', lat: -1.2610, lng: 36.8180, speed_kmh: 34, heading: 350, current_stop_id: 'stop-119-2', next_stop_id: 'stop-119-3', route_id: 'route-119', is_active: true, updated_at: new Date().toISOString() }
     ];
 
-    // 8. Pre-seed some realistic bookings & tickets for demo
-    const sampleBookingId = 'BK-' + Math.floor(100000 + Math.random() * 900000);
+    // Pre-seeded Booking & Ticket
+    const sampleBookingId = 'BK-100201';
     this.bookings.push({
       id: sampleBookingId,
       user_id: 'user-p1',
@@ -432,27 +434,23 @@ class Database {
       payment_method: 'M-Pesa STK Push',
       payment_status: 'paid',
       booking_status: 'confirmed',
-      created_at: new Date(Date.now() - 25 * 60 * 1000).toISOString()
+      created_at: new Date().toISOString()
     });
 
-    // Mark seat 3A on veh-1 as booked
-    const seat3A = this.vehicle_seats.find(s => s.vehicle_id === 'veh-1' && s.seat_label === '3A');
-    if (seat3A) {
-      seat3A.status = 'booked';
-      seat3A.booked_by = 'user-p1';
-    }
-
     this.tickets.push({
-      id: 'TCK-' + Math.floor(100000 + Math.random() * 900000),
+      id: 'TCK-123456',
       booking_id: sampleBookingId,
       qr_payload: JSON.stringify({
+        ticket_id: 'TCK-123456',
         booking_id: sampleBookingId,
-        passenger: 'Brian Mwangi',
-        route: 'Route 125 (CBD -> Rongai)',
-        seat: '3A',
-        vehicle: 'KDA 123A',
-        operator: 'Ongata Line Rongai SACCO',
-        valid_until: new Date(Date.now() + 4 * 3600 * 1000).toISOString()
+        passenger_name: 'Brian Mwangi',
+        route_name: 'Route 125: CBD to Rongai',
+        boarding_point: 'Nyayo National Stadium',
+        destination: 'Ongata Rongai Maasai Mall',
+        vehicle_reg: 'KDA 123A',
+        seat_numbers: '3A',
+        fare: 100,
+        receipt: 'QKJ8912741'
       }),
       status: 'valid',
       scanned_at: null,
@@ -460,36 +458,128 @@ class Database {
       created_at: new Date().toISOString()
     });
 
-    this.payments.push({
-      id: 'PAY-' + Math.floor(100000 + Math.random() * 900000),
-      booking_id: sampleBookingId,
-      amount: 100,
-      phone: '0712345678',
-      provider: 'M-Pesa',
-      checkout_request_id: 'ws_CO_' + Date.now(),
-      mpesa_receipt_number: 'QEH' + Math.floor(10000000 + Math.random() * 90000000),
-      status: 'completed',
-      created_at: new Date(Date.now() - 24 * 60 * 1000).toISOString()
-    });
+    // 4. Passenger Wallets (Section 23 Future Features)
+    this.wallets = [
+      {
+        id: 'wal-p1',
+        user_id: 'user-p1',
+        balance_kes: 1450,
+        transactions: [
+          { id: 'tx-1', type: 'topup', amount: 1500, method: 'M-Pesa', receipt: 'QHJ123984', timestamp: new Date(Date.now() - 3600000).toISOString() },
+          { id: 'tx-2', type: 'fare_deduction', amount: 100, route: 'Route 125', timestamp: new Date(Date.now() - 1800000).toISOString() }
+        ],
+        updated_at: new Date().toISOString()
+      }
+    ];
 
-    this.notifications.push({
-      id: 'notif-1',
-      user_id: 'user-p1',
-      title: 'Booking Confirmed',
-      message: 'Your seat 3A on KDA 123A (Route 125) is reserved. Show your QR ticket when boarding.',
-      read: false,
-      created_at: new Date(Date.now() - 24 * 60 * 1000).toISOString()
-    });
+    // 5. Commuter Passes (Section 23 Future Features)
+    this.commuter_passes = [
+      {
+        id: 'pass-template-daily',
+        name: 'Nairobi 24-Hour Day Pass',
+        duration_days: 1,
+        price_kes: 250,
+        unlimited_trips: true,
+        routes: 'all',
+        description: 'Unlimited rides across all metropolitan routes for 24 hours'
+      },
+      {
+        id: 'pass-template-weekly',
+        name: '7-Day Metropolitan Commuter Pass',
+        duration_days: 7,
+        price_kes: 1200,
+        unlimited_trips: true,
+        routes: 'all',
+        description: 'Ideal for daily office commuters traveling Monday to Sunday'
+      },
+      {
+        id: 'pass-template-monthly',
+        name: '30-Day Gold Commuter Pass',
+        duration_days: 30,
+        price_kes: 4200,
+        unlimited_trips: true,
+        routes: 'all',
+        description: 'Maximum savings with dedicated priority boarding lane'
+      }
+    ];
+
+    // 6. Passenger Reviews & Ratings (Section 23)
+    this.reviews = [
+      {
+        id: 'rev-1',
+        user_id: 'user-p1',
+        passenger_name: 'Brian Mwangi',
+        vehicle_id: 'veh-1',
+        route_id: 'route-125',
+        rating: 5,
+        comment: 'Very clean bus, polite conductor Dennis, and reached Rongai right on schedule!',
+        created_at: new Date(Date.now() - 7200000).toISOString()
+      },
+      {
+        id: 'rev-2',
+        user_id: 'user-p2',
+        passenger_name: 'Faith Achieng',
+        vehicle_id: 'veh-2',
+        route_id: 'route-237',
+        rating: 5,
+        comment: 'Super Metro never disappoints. Wi-Fi was fast and GPS tracking was accurate.',
+        created_at: new Date(Date.now() - 14400000).toISOString()
+      }
+    ];
+
+    // 7. Lost & Found Depot (Section 23)
+    this.lost_found = [
+      {
+        id: 'lf-1',
+        item_title: 'Black Lenovo ThinkPad Laptop Bag',
+        category: 'Electronics',
+        vehicle_reg: 'KDA 123A',
+        route_number: '125',
+        description: 'Left on seat 3A during morning CBD to Rongai trip. Contains company ID.',
+        contact_phone: '0712345678',
+        reported_by: 'Brian Mwangi',
+        status: 'found_at_depot',
+        depot_location: 'Super Metro Central Office, Commercial St',
+        created_at: new Date(Date.now() - 86400000).toISOString()
+      },
+      {
+        id: 'lf-2',
+        item_title: 'Brown Leather Wallet & National ID',
+        category: 'Documents',
+        vehicle_reg: 'KDC 456B',
+        route_number: '237',
+        description: 'Dropped under row 4 seats near Roysambu.',
+        contact_phone: '0798765432',
+        reported_by: 'Faith Achieng',
+        status: 'investigating',
+        depot_location: 'Thika Town Stage Office',
+        created_at: new Date(Date.now() - 43200000).toISOString()
+      }
+    ];
+
+    // 8. Promo Codes (Section 23)
+    this.promo_codes = [
+      { code: 'NAIROBI20', discount_type: 'percent', value: 20, active: true, desc: '20% off all routes' },
+      { code: 'TWENDE', discount_type: 'fixed', value: 30, active: true, desc: 'KSh 30 instant fare discount' },
+      { code: 'MATATU50', discount_type: 'percent', value: 50, active: true, desc: '50% off first digital ride' }
+    ];
+
+    // 9. Traffic Congestion States (Section 23 - Traffic-based ETA)
+    this.traffic_conditions = {
+      'route-125': { condition: 'Moderate', delay_mins: 4, speed_multiplier: 0.85, alert: 'Langata Rd moving smoothly' },
+      'route-237': { condition: 'Light', delay_mins: 0, speed_multiplier: 1.0, alert: 'Thika Superhighway clear' },
+      'route-111': { condition: 'Heavy', delay_mins: 8, speed_multiplier: 0.65, alert: 'Jam near Junction Mall' },
+      'route-106': { condition: 'Light', delay_mins: 0, speed_multiplier: 1.0, alert: 'Waiyaki Way express flowing' },
+      'route-119': { condition: 'Moderate', delay_mins: 3, speed_multiplier: 0.9, alert: 'Two Rivers roundabout slow' },
+      'route-100': { condition: 'Light', delay_mins: 0, speed_multiplier: 1.0, alert: 'Pangani flyover clear' }
+    };
   }
 
   generateSeatsForVehicle(vehicle) {
-    if (!vehicle.supports_seat_reservation) {
-      return;
-    }
+    if (!vehicle.supports_seat_reservation) return;
 
     const seats = [];
     if (vehicle.vehicle_type === 'matatu_14') {
-      // 14-seater Nissan layout: 1 front, 3 rows of 3, 1 back row of 4
       const labels = ['1A (Front)', '2A', '2B', '2C', '3A', '3B', '3C', '4A', '4B', '4C', '5A', '5B', '5C', '5D'];
       labels.forEach((label, idx) => {
         seats.push({
@@ -498,14 +588,13 @@ class Database {
           seat_number: idx + 1,
           seat_label: label,
           row: Math.floor(idx / 3) + 1,
-          status: 'available', // available, locked, booked
+          status: 'available',
           locked_until: null,
           locked_by: null,
           booked_by: null
         });
       });
     } else if (vehicle.vehicle_type === 'bus_33') {
-      // 33-seater: 2 x 2 configuration, 8 rows of 4 + 1 back row of 5
       const rows = ['1', '2', '3', '4', '5', '6', '7', '8'];
       let count = 0;
       rows.forEach(r => {
@@ -527,7 +616,6 @@ class Database {
           });
         });
       });
-      // Back row
       ['A', 'B', 'C', 'D', 'E'].forEach(col => {
         count++;
         seats.push({
@@ -546,7 +634,6 @@ class Database {
         });
       });
     } else {
-      // 51-seater Coach layout
       for (let i = 1; i <= 51; i++) {
         const row = Math.ceil(i / 4);
         const colLetter = ['A', 'B', 'C', 'D'][(i - 1) % 4];
@@ -569,7 +656,6 @@ class Database {
     this.vehicle_seats.push(...seats);
   }
 
-  // Seat locking mechanism: lock seats for 7 minutes during payment
   lockSeats(vehicleId, seatLabels, userId) {
     const lockExpiryMs = 7 * 60 * 1000;
     const now = Date.now();
@@ -581,7 +667,6 @@ class Database {
       if (!seat) {
         throw new Error(`Seat ${label} does not exist on vehicle ${vehicleId}`);
       }
-      // Check if already booked or currently locked by someone else
       if (seat.status === 'booked') {
         throw new Error(`Seat ${label} has already been booked`);
       }
@@ -593,6 +678,7 @@ class Database {
       seat.locked_until = expiryTime;
       affected.push(seat);
     }
+    this.saveToDisk();
     return { locked_seats: affected, expires_at: expiryTime };
   }
 
@@ -607,10 +693,10 @@ class Database {
         released.push(seat);
       }
     }
+    this.saveToDisk();
     return released;
   }
 
-  // Expiration background worker
   startSeatExpirationWorker() {
     setInterval(() => {
       const now = Date.now();
@@ -624,12 +710,11 @@ class Database {
         }
       }
       if (releasedCount > 0) {
-        this.logAudit('SEAT_AUTO_RELEASE', `Automatically released ${releasedCount} expired seat lock(s)`);
+        this.logAudit('SEAT_AUTO_RELEASE', `Released ${releasedCount} expired seat lock(s)`);
       }
     }, 5000);
   }
 
-  // Logging and Audits
   logAudit(action, details, actor = 'system') {
     this.audit_logs.unshift({
       id: 'log-' + uuidv4().substring(0, 8),

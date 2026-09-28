@@ -1,0 +1,21 @@
+{
+  "short_name": "TransitGo",
+  "name": "Nairobi Transit - Local Bus & Matatu App",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#0f172a",
+  "theme_color": "#008751",
+  "display": "standalone",
+  "orientation": "portrait"
+}

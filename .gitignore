@@ -6,3 +6,4 @@ yarn-error.log*
 Thumbs.db
 *.log
 .env
+data/

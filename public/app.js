@@ -1,80 +1,87 @@
 // Nairobi Local Bus & Matatu Transit Platform Frontend Logic
-// Real-time WebSockets, Leaflet GPS Tracking, Seat Locking, M-Pesa STK Push, QR Scanner & Dashboards
+// Real-time WebSockets, Leaflet GPS Tracking, Seat Locking, M-Pesa STK Push, 
+// QR Scanner, Wallets, Commuter Passes, Lost & Found, and Traffic-Based ETAs
 
-// State Management
 const state = {
   currentRole: 'passenger',
   routes: [],
   selectedRouteId: '',
   selectedBoardingStopId: '',
   selectedDestinationStopId: '',
-  passengerCoords: { lat: -1.2905, lng: 36.8252 }, // Default Nairobi CBD Railways
+  passengerCoords: { lat: -1.2905, lng: 36.8252 },
   nearbyVehicles: [],
   selectedVehicle: null,
   selectedSeats: [],
+  appliedPromoCode: null,
+  appliedDiscount: 0,
+  paymentMethod: 'mpesa', // 'mpesa' or 'wallet'
   currentBooking: null,
   currentTicket: null,
-  lockedSeatExpiry: null,
+  userWallet: { balance_kes: 1450 },
+  reviewRating: 5,
   socket: null,
   passengerMap: null,
   adminMap: null,
-  vehicleMarkers: new Map(), // vehicleId -> leaflet marker
+  vehicleMarkers: new Map(),
   adminVehicleMarkers: new Map(),
   passengerMarker: null,
   routePolyline: null,
   conductorVehicleId: 'veh-1',
-  operatorId: 'op-1',
-  qrCodeInstance: null
+  operatorId: 'op-1'
 };
 
-// Initialize Application
 document.addEventListener('DOMContentLoaded', async () => {
   initSocket();
   initPassengerMap();
   await loadRoutes();
   await refreshNearbyVehicles();
+  await loadWalletData();
   loadConductorManifest();
   loadOperatorData();
   loadAdminData();
-
-  // Check if passenger already has a booked ticket in localStorage or sample
+  loadLostFoundItems();
   checkExistingTicket();
+
+  // Register service worker if supported
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/service-worker.js').catch(() => {});
+  }
 });
 
-// Socket.IO Setup
 function initSocket() {
   if (typeof io !== 'undefined') {
     state.socket = io();
 
-    // Live Vehicle GPS coordinates broadcast
     state.socket.on('vehicle:location_update', (data) => {
       onVehicleLocationReceived(data);
     });
 
-    // Seat state broadcast (locked/booked/released)
     state.socket.on('seats:status_changed', (data) => {
-      onSeatsStatusChanged(data);
+      if (state.selectedVehicle && state.selectedVehicle.id === data.vehicle_id) {
+        selectVehicleForBooking(data.vehicle_id, true);
+      }
     });
 
-    // Payment confirmation event
     state.socket.on('payment:confirmed', (data) => {
       onPaymentConfirmed(data);
     });
 
-    // Ticket verified by conductor
     state.socket.on('ticket:verified', (data) => {
       onTicketVerifiedEvent(data);
+    });
+
+    state.socket.on('traffic:updated', (data) => {
+      refreshNearbyVehicles();
     });
   }
 }
 
-// 1. Role / View Switching
 function switchView(viewName) {
   state.currentRole = viewName;
 
   const views = ['passenger', 'conductor', 'operator', 'admin', 'split'];
   views.forEach(v => {
-    const el = document.getElementById(`view-parent-${v}`) || document.getElementById(`view-${v}`);
+    const el = document.getElementById(`view-${v}`);
     if (el) {
       if (v === viewName) {
         el.classList.remove('hidden');
@@ -95,7 +102,6 @@ function switchView(viewName) {
     }
   });
 
-  // Re-render maps if visible
   setTimeout(() => {
     if (viewName === 'passenger' && state.passengerMap) {
       state.passengerMap.invalidateSize();
@@ -111,7 +117,6 @@ function switchView(viewName) {
   }, 150);
 }
 
-// 2. Leaflet Maps Setup
 function initPassengerMap() {
   const mapElement = document.getElementById('passenger-map');
   if (!mapElement) return;
@@ -122,7 +127,6 @@ function initPassengerMap() {
     attribution: '&copy; OpenStreetMap contributors'
   }).addTo(state.passengerMap);
 
-  // Add passenger blue beacon marker
   const passengerIcon = L.divIcon({
     className: 'custom-passenger-marker',
     iconSize: [18, 18],
@@ -145,7 +149,6 @@ function initAdminMap() {
   }).addTo(state.adminMap);
 }
 
-// 3. Routes & Stops Loading
 async function loadRoutes() {
   try {
     const res = await fetch('/api/routes');
@@ -199,15 +202,11 @@ function populateBoardingAndDestStops() {
       stopsToDisplay = targetRoute.stops;
     }
   } else {
-    // Show CBD main stages by default
     state.routes.forEach(r => {
-      if (r.stops) {
-        stopsToDisplay.push(...r.stops);
-      }
+      if (r.stops) stopsToDisplay.push(...r.stops);
     });
   }
 
-  // Deduplicate by name
   const seen = new Set();
   stopsToDisplay.forEach(s => {
     if (!seen.has(s.name)) {
@@ -244,7 +243,6 @@ function onDestinationStageChanged() {
   state.selectedDestinationStopId = sel.value;
 }
 
-// 4. Fetch and Render Nearby Vehicles (Section 5)
 async function refreshNearbyVehicles() {
   const container = document.getElementById('nearby-vehicles-container');
   if (!container) return;
@@ -321,14 +319,13 @@ function renderNearbyVehicles(vehicles) {
         </div>
       </div>
 
-      <!-- Route Path & Proximity Bar -->
       <div class="mt-4 pt-3 border-t border-slate-100 grid grid-cols-3 gap-2 text-center text-xs">
         <div class="bg-slate-50 p-2 rounded-lg">
           <span class="text-slate-400 text-[10px] block">Distance</span>
           <span class="font-bold text-slate-800">${veh.distance_text}</span>
         </div>
         <div class="bg-emerald-50 p-2 rounded-lg border border-emerald-100">
-          <span class="text-emerald-700 text-[10px] block">Arrival ETA</span>
+          <span class="text-emerald-700 text-[10px] block">Traffic ETA</span>
           <span class="font-black text-emerald-800">${veh.eta_text}</span>
         </div>
         <div class="bg-slate-50 p-2 rounded-lg">
@@ -337,7 +334,6 @@ function renderNearbyVehicles(vehicles) {
         </div>
       </div>
 
-      <!-- Action Button -->
       <div class="mt-3 flex items-center justify-between">
         <span class="text-xs text-slate-500 flex items-center gap-1">
           <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
@@ -353,7 +349,6 @@ function renderNearbyVehicles(vehicles) {
   });
 }
 
-// 5. Update Map Vehicle Markers
 function updateMapVehicles(vehicles) {
   if (!state.passengerMap) return;
 
@@ -362,16 +357,9 @@ function updateMapVehicles(vehicles) {
     if (!loc || !loc.lat) return;
 
     if (state.vehicleMarkers.has(veh.vehicle_id)) {
-      // Smoothly update existing marker position
       const marker = state.vehicleMarkers.get(veh.vehicle_id);
       marker.setLatLng([loc.lat, loc.lng]);
-      marker.setPopupContent(`
-        <strong>${veh.registration_number} (${veh.operator_name})</strong><br>
-        Route: ${veh.route_number} | Speed: ${veh.speed_kmh} km/h<br>
-        ETA: ${veh.eta_text} | Fare: KSh ${veh.fare}
-      `);
     } else {
-      // Create new marker
       const busIcon = L.divIcon({
         className: 'custom-bus-marker',
         html: `<span>${veh.route_number}</span>`,
@@ -397,13 +385,11 @@ function updateMapVehicles(vehicles) {
 }
 
 function onVehicleLocationReceived(data) {
-  // Update passenger map
   if (state.passengerMap && state.vehicleMarkers.has(data.vehicle_id)) {
     const marker = state.vehicleMarkers.get(data.vehicle_id);
     marker.setLatLng([data.lat, data.lng]);
   }
 
-  // Update telemetry bar if currently selected vehicle
   if (state.selectedVehicle && state.selectedVehicle.id === data.vehicle_id) {
     const speedEl = document.getElementById('telemetry-speed');
     if (speedEl) speedEl.textContent = `${data.speed_kmh} km/h`;
@@ -414,7 +400,6 @@ function onVehicleLocationReceived(data) {
     }
   }
 
-  // Update conductor terminal if it matches
   if (data.vehicle_id === state.conductorVehicleId) {
     const cSpeed = document.getElementById('conductor-speed-val');
     if (cSpeed) cSpeed.textContent = `${data.speed_kmh} km/h`;
@@ -423,21 +408,16 @@ function onVehicleLocationReceived(data) {
     if (cNext && data.next_stop_name) cNext.textContent = data.next_stop_name;
   }
 
-  // Update split view text
   const splitPos = document.getElementById('split-pos-text');
   if (splitPos && data.vehicle_id === 'veh-1') {
     splitPos.textContent = `At ${data.current_stop_name || 'En route'} (${data.speed_kmh} km/h)`;
   }
 
-  // Update admin map if visible
-  if (state.adminMap) {
-    if (state.adminVehicleMarkers.has(data.vehicle_id)) {
-      state.adminVehicleMarkers.get(data.vehicle_id).setLatLng([data.lat, data.lng]);
-    }
+  if (state.adminMap && state.adminVehicleMarkers.has(data.vehicle_id)) {
+    state.adminVehicleMarkers.get(data.vehicle_id).setLatLng([data.lat, data.lng]);
   }
 }
 
-// Draw Route Path on Map
 function drawRouteLineOnMap() {
   if (!state.passengerMap) return;
 
@@ -462,17 +442,20 @@ function resetMapView() {
   }
 }
 
-// 6. Seat Selection and Booking Flow (Section 8 & 18)
-async function selectVehicleForBooking(vehicleId) {
+// Seat Booking Flow
+async function selectVehicleForBooking(vehicleId, keepModalOpen = false) {
   try {
     const res = await fetch(`/api/vehicles/${vehicleId}`);
     const data = await res.json();
     if (!data.success) return;
 
     state.selectedVehicle = data.vehicle;
-    state.selectedSeats = [];
+    if (!keepModalOpen) {
+      state.selectedSeats = [];
+      state.appliedPromoCode = null;
+      state.appliedDiscount = 0;
+    }
 
-    // Update telemetry bar
     const regEl = document.getElementById('telemetry-vehicle-reg');
     const routeEl = document.getElementById('telemetry-vehicle-route');
     const distEl = document.getElementById('telemetry-distance');
@@ -485,13 +468,11 @@ async function selectVehicleForBooking(vehicleId) {
     if (etaEl) etaEl.textContent = '4 min';
     if (speedEl && data.vehicle.location) speedEl.textContent = `${data.vehicle.location.speed_kmh} km/h`;
 
-    // Center map on this vehicle
-    if (data.vehicle.location && state.passengerMap) {
-      state.passengerMap.setView([data.vehicle.location.lat, data.vehicle.location.lng], 14);
+    if (!keepModalOpen) {
+      openSeatPickerModal(data.vehicle);
+    } else {
+      renderSeatGrid(data.vehicle);
     }
-
-    // Open booking modal
-    openSeatPickerModal(data.vehicle);
 
   } catch (err) {
     console.error('Error selecting vehicle:', err);
@@ -513,8 +494,7 @@ function openSeatPickerModal(vehicle) {
     notice.innerHTML = `<span>Visual seat selection active. Selected seats are temporarily held for 7 minutes during checkout.</span>`;
     proceedBtn.disabled = true;
   } else {
-    // Pay & Board Mode without specific seat reservation
-    notice.innerHTML = `<span><strong>Pay & Board Mode:</strong> Advance seat selection is not required for this vehicle. Proceed directly to M-Pesa payment to generate your boarding pass.</span>`;
+    notice.innerHTML = `<span><strong>Pay & Board Mode:</strong> Advance seat selection is not required for this vehicle. Proceed directly to payment to generate your boarding pass.</span>`;
     proceedBtn.disabled = false;
   }
 
@@ -538,13 +518,12 @@ function renderSeatGrid(vehicle) {
       <div class="p-6 text-center bg-emerald-50 rounded-xl border border-emerald-200 space-y-2">
         <div class="text-3xl">🚐</div>
         <div class="font-bold text-slate-800 text-sm">Open Boarding (First-Come, First-Served)</div>
-        <p class="text-xs text-slate-600">This vehicle operates on rapid turnaround. Your seat will be confirmed as Pay & Board upon M-Pesa verification.</p>
+        <p class="text-xs text-slate-600">This vehicle operates on rapid turnaround. Your seat will be confirmed as Pay & Board upon payment verification.</p>
       </div>
     `;
     return;
   }
 
-  // Group seats by row
   const seats = vehicle.seats || [];
   const rowsMap = new Map();
   seats.forEach(s => {
@@ -560,16 +539,13 @@ function renderSeatGrid(vehicle) {
     const rowDiv = document.createElement('div');
     rowDiv.className = 'flex items-center justify-between gap-2';
 
-    // Left side seats
     const leftCol = document.createElement('div');
     leftCol.className = 'flex gap-2';
 
-    // Aisle spacer
     const aisleSpacer = document.createElement('div');
     aisleSpacer.className = 'w-6 text-center text-[10px] text-slate-300 font-mono flex items-center justify-center';
     aisleSpacer.textContent = rowNum;
 
-    // Right side seats
     const rightCol = document.createElement('div');
     rightCol.className = 'flex gap-2';
 
@@ -597,11 +573,12 @@ function createSeatButton(seat) {
 
   if (seat.status === 'booked') {
     btn.disabled = true;
-    btn.title = 'Seat already booked';
   } else if (seat.status === 'locked') {
     btn.disabled = true;
-    btn.title = 'Seat locked during checkout';
   } else {
+    if (state.selectedSeats.includes(seat.seat_label)) {
+      btn.classList.add('selected');
+    }
     btn.onclick = () => toggleSeatSelection(seat.seat_label, btn);
   }
 
@@ -614,7 +591,6 @@ function toggleSeatSelection(seatLabel, buttonEl) {
     state.selectedSeats.splice(idx, 1);
     buttonEl.classList.remove('selected');
   } else {
-    // Single seat booking for now or multiple
     state.selectedSeats.push(seatLabel);
     buttonEl.classList.add('selected');
   }
@@ -644,14 +620,12 @@ function updateModalSummary() {
   }
 }
 
-// 7. Proceed to M-Pesa Payment & Lock Seat (Section 10 & 18)
 async function proceedToPayment() {
   if (!state.selectedVehicle) return;
 
   const isReservedMode = state.selectedVehicle.supports_seat_reservation;
 
   if (isReservedMode && state.selectedSeats.length > 0) {
-    // Call server to lock seats
     try {
       const lockRes = await fetch('/api/seats/lock', {
         method: 'POST',
@@ -675,7 +649,6 @@ async function proceedToPayment() {
     }
   }
 
-  // Close Seat Modal and Open M-Pesa Modal
   closeSeatModal();
   openMpesaModal();
 }
@@ -691,20 +664,21 @@ function openMpesaModal() {
 
   const baseFare = state.selectedVehicle.route ? state.selectedVehicle.route.base_fare : 100;
   const count = state.selectedSeats.length > 0 ? state.selectedSeats.length : 1;
-  const total = count * baseFare;
+  const gross = count * baseFare;
+  const net = Math.max(10, gross - state.appliedDiscount);
 
   if (opEl) opEl.textContent = state.selectedVehicle.operator_name;
   if (vehEl) vehEl.textContent = `${state.selectedVehicle.registration_number} (${state.selectedVehicle.route ? state.selectedVehicle.route.name : 'Nairobi Transit'})`;
   if (seatsEl) seatsEl.textContent = state.selectedSeats.length > 0 ? state.selectedSeats.join(', ') : 'Pay & Board Mode';
-  if (amountEl) amountEl.textContent = `KSh ${total}`;
-  if (promptAmount) promptAmount.textContent = total;
+  if (amountEl) amountEl.textContent = `KSh ${net}`;
+  if (promptAmount) promptAmount.textContent = net;
   if (promptOp) promptOp.textContent = state.selectedVehicle.operator_name;
 
-  // Reset STK UI state
   document.getElementById('simulated-stk-phone').classList.add('hidden');
   document.getElementById('mpesa-status-spinner').classList.add('hidden');
   document.getElementById('stk-init-container').classList.remove('hidden');
 
+  selectPayMethod('mpesa');
   modal.classList.remove('hidden');
 }
 
@@ -712,16 +686,139 @@ function closeMpesaModal() {
   document.getElementById('modal-mpesa-checkout').classList.add('hidden');
 }
 
-// 8. Trigger M-Pesa STK Push
+// Payment Methods: M-Pesa vs Wallet
+function selectPayMethod(method) {
+  state.paymentMethod = method;
+  const mpesaBtn = document.getElementById('pay-method-mpesa');
+  const walletBtn = document.getElementById('pay-method-wallet');
+  const phoneSec = document.getElementById('mpesa-phone-section');
+  const actionBtn = document.getElementById('btn-trigger-stk');
+
+  if (method === 'mpesa') {
+    mpesaBtn.className = 'p-2.5 rounded-xl border-2 border-brand-mpesa bg-emerald-50 text-emerald-900 text-xs font-bold text-center';
+    walletBtn.className = 'p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 text-xs font-bold text-center hover:border-slate-400';
+    phoneSec.classList.remove('hidden');
+    actionBtn.innerHTML = '<span>📲</span> Send M-Pesa STK Push';
+  } else {
+    walletBtn.className = 'p-2.5 rounded-xl border-2 border-emerald-600 bg-emerald-50 text-emerald-900 text-xs font-bold text-center';
+    mpesaBtn.className = 'p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 text-xs font-bold text-center hover:border-slate-400';
+    phoneSec.classList.add('hidden');
+    actionBtn.innerHTML = '<span>👛</span> Pay with Wallet Balance';
+  }
+}
+
+async function applyPromoCode() {
+  const input = document.getElementById('checkout-promo-input');
+  const msg = document.getElementById('promo-status-msg');
+  const code = input ? input.value.trim() : '';
+
+  if (!code) return;
+
+  const baseFare = state.selectedVehicle.route ? state.selectedVehicle.route.base_fare : 100;
+  const count = state.selectedSeats.length > 0 ? state.selectedSeats.length : 1;
+  const gross = count * baseFare;
+
+  try {
+    const res = await fetch('/api/promo/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, fare: gross })
+    });
+    const data = await res.json();
+    msg.classList.remove('hidden');
+    if (data.valid) {
+      state.appliedPromoCode = data.promo_code;
+      state.appliedDiscount = data.discount_amount;
+      msg.textContent = `✅ ${data.message}`;
+      msg.className = 'text-[11px] text-emerald-700 font-bold';
+      document.getElementById('mpesa-summary-amount').textContent = `KSh ${data.discounted_fare}`;
+      document.getElementById('stk-prompt-amount').textContent = data.discounted_fare;
+      showToast(`Promo applied! Saved KSh ${data.discount_amount}`);
+    } else {
+      msg.textContent = `❌ ${data.message}`;
+      msg.className = 'text-[11px] text-rose-700 font-bold';
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+async function executeChosenPayment() {
+  if (state.paymentMethod === 'wallet') {
+    await payWithWallet();
+  } else {
+    await triggerMpesaStkPush();
+  }
+}
+
+async function payWithWallet() {
+  const baseFare = state.selectedVehicle.route ? state.selectedVehicle.route.base_fare : 100;
+  const count = state.selectedSeats.length > 0 ? state.selectedSeats.length : 1;
+  const gross = count * baseFare;
+  const net = Math.max(10, gross - state.appliedDiscount);
+
+  if (state.userWallet.balance_kes < net) {
+    alert(`Insufficient wallet balance (Current: KSh ${state.userWallet.balance_kes}). Please top up or pay with M-Pesa.`);
+    return;
+  }
+
+  // First initiate booking record
+  try {
+    const pushRes = await fetch('/api/payments/stk-push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        phone: '0712345678',
+        amount: net,
+        vehicle_id: state.selectedVehicle.id,
+        route_id: state.selectedVehicle.route_id,
+        boarding_stop_id: state.selectedBoardingStopId || 'stop-125-1',
+        destination_stop_id: state.selectedDestinationStopId || 'stop-125-7',
+        seat_labels: state.selectedSeats,
+        passenger_name: 'Brian Mwangi',
+        promo_code: state.appliedPromoCode
+      })
+    });
+    const pushData = await pushRes.json();
+
+    // Deduct wallet
+    await fetch('/api/wallet/pay', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: 'user-p1', booking_id: pushData.booking_id, amount: net })
+    });
+
+    // Confirm callback
+    const cbRes = await fetch('/api/payments/callback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        checkout_request_id: pushData.checkout_request_id,
+        result_code: 0,
+        mpesa_receipt_number: 'QWL' + Math.floor(10000000 + Math.random() * 90000000)
+      })
+    });
+    const cbData = await cbRes.json();
+
+    closeMpesaModal();
+    await loadWalletData();
+    showToast('✅ Paid with TransitGo Wallet balance!');
+    displayDigitalTicket(cbData.ticket, cbData.booking);
+
+  } catch (err) {
+    console.error('Wallet payment error:', err);
+  }
+}
+
 async function triggerMpesaStkPush() {
   const phoneInput = document.getElementById('mpesa-phone-input');
   const phone = phoneInput ? phoneInput.value.trim() : '0712345678';
 
   const baseFare = state.selectedVehicle.route ? state.selectedVehicle.route.base_fare : 100;
   const count = state.selectedSeats.length > 0 ? state.selectedSeats.length : 1;
-  const amount = count * baseFare;
+  const gross = count * baseFare;
+  const amount = Math.max(10, gross - state.appliedDiscount);
 
-  // Show spinner
   document.getElementById('stk-init-container').classList.add('hidden');
   const spinner = document.getElementById('mpesa-status-spinner');
   const statusText = document.getElementById('mpesa-status-text');
@@ -740,14 +837,14 @@ async function triggerMpesaStkPush() {
         boarding_stop_id: state.selectedBoardingStopId || 'stop-125-1',
         destination_stop_id: state.selectedDestinationStopId || 'stop-125-7',
         seat_labels: state.selectedSeats,
-        passenger_name: 'Brian Mwangi'
+        passenger_name: 'Brian Mwangi',
+        promo_code: state.appliedPromoCode
       })
     });
 
     const data = await res.json();
     if (data.success) {
       state.currentBooking = data;
-      // Show simulated STK PIN entry phone modal
       spinner.classList.add('hidden');
       document.getElementById('simulated-stk-phone').classList.remove('hidden');
       showToast('📱 M-Pesa STK Push prompt sent to your phone');
@@ -764,7 +861,6 @@ async function triggerMpesaStkPush() {
   }
 }
 
-// 9. Submit Simulated Callback Confirmation (Section 10)
 async function submitStkCallbackSimulation(status) {
   if (!state.currentBooking) return;
 
@@ -818,7 +914,6 @@ function cancelPaymentAndReleaseSeats() {
   showToast('Seat released');
 }
 
-// 10. Digital Ticket Display (Section 11)
 function displayDigitalTicket(ticket, booking) {
   state.currentTicket = ticket;
   const modal = document.getElementById('modal-digital-ticket');
@@ -843,7 +938,6 @@ function displayDigitalTicket(ticket, booking) {
   if (seatEl) seatEl.textContent = booking.seat_numbers && booking.seat_numbers.length > 0 ? booking.seat_numbers.join(', ') : 'Pay & Board';
   if (receiptEl) receiptEl.textContent = booking.mpesa_receipt_number || 'QKJ8912741';
 
-  // Render QR Code with QRCode.js
   const qrContainer = document.getElementById('ticket-qrcode');
   if (qrContainer) {
     qrContainer.innerHTML = '';
@@ -857,7 +951,6 @@ function displayDigitalTicket(ticket, booking) {
     });
   }
 
-  // Update active ticket banner on passenger screen
   const banner = document.getElementById('active-ticket-banner');
   const bannerSub = document.getElementById('banner-ticket-subtitle');
   if (banner) {
@@ -878,7 +971,6 @@ function openCurrentTicketModal() {
   if (state.currentTicket) {
     document.getElementById('modal-digital-ticket').classList.remove('hidden');
   } else {
-    // Fetch pre-seeded sample ticket
     fetch('/api/tickets/TCK-123456')
       .then(res => res.json())
       .then(data => {
@@ -898,12 +990,10 @@ async function checkExistingTicket() {
       const banner = document.getElementById('active-ticket-banner');
       if (banner) banner.classList.remove('hidden');
     }
-  } catch (err) {
-    // Ignore if not present
-  }
+  } catch (err) {}
 }
 
-// 11. Conductor / Driver Terminal Logic (Section 12)
+// Conductor Terminal Logic
 async function loadConductorManifest() {
   try {
     const res = await fetch(`/api/conductor/manifest/${state.conductorVehicleId}`);
@@ -947,7 +1037,6 @@ function renderConductorManifest(passengers) {
   });
 }
 
-// Conductor Trip Toggle (Start / Stop Route)
 async function toggleTripStatus() {
   const btn = document.getElementById('btn-toggle-trip');
   const badge = document.getElementById('trip-badge');
@@ -958,10 +1047,7 @@ async function toggleTripStatus() {
     const res = await fetch('/api/conductor/trip-status', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        vehicle_id: state.conductorVehicleId,
-        action: nextAction
-      })
+      body: JSON.stringify({ vehicle_id: state.conductorVehicleId, action: nextAction })
     });
 
     const data = await res.json();
@@ -985,12 +1071,10 @@ async function toggleTripStatus() {
   }
 }
 
-// Conductor Manual GPS Ping
 function triggerManualGpsPing() {
   showToast('📡 GPS Ping transmitted: -1.3039, 36.8243 (Nyayo Stadium)');
 }
 
-// Conductor QR Scanner & Ticket Verification
 async function verifyTicketByInput() {
   const input = document.getElementById('conductor-qr-input');
   const code = input ? input.value.trim() : '';
@@ -1007,10 +1091,7 @@ async function verifyTicketByInput() {
     const res = await fetch('/api/tickets/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        qr_content: code,
-        conductor_id: 'Dennis Omondi'
-      })
+      body: JSON.stringify({ qr_content: code, conductor_id: 'Dennis Omondi' })
     });
 
     const data = await res.json();
@@ -1050,15 +1131,12 @@ function fillSampleTicketForScanner() {
   }
 }
 
-// Split View QR scanner
 async function verifyTicketFromSplit() {
   const input = document.getElementById('split-qr-input');
   const code = input ? input.value.trim() : '';
   const msg = document.getElementById('split-scan-msg');
 
-  if (!code) {
-    input.value = 'TCK-123456';
-  }
+  if (!code) input.value = 'TCK-123456';
 
   try {
     const res = await fetch('/api/tickets/verify', {
@@ -1080,7 +1158,7 @@ async function verifyTicketFromSplit() {
   }
 }
 
-// 12. SACCO Operator Dashboard Logic (Section 15)
+// Operator Dashboard Logic
 async function loadOperatorData() {
   try {
     const res = await fetch(`/api/operator/stats/${state.operatorId}`);
@@ -1197,7 +1275,7 @@ function inspectFleetVehicle(vehId) {
   switchView('passenger');
 }
 
-// 13. Platform Administrator Dashboard Logic (Section 16)
+// Platform Administrator Logic
 async function loadAdminData() {
   try {
     const res = await fetch('/api/admin/overview');
@@ -1322,7 +1400,206 @@ function renderAdminFleetMap(fleet) {
   });
 }
 
-// 14. Notifications Modal
+async function updateTraffic(routeId, condition) {
+  try {
+    const res = await fetch('/api/traffic/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ route_id: routeId, condition })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(`Traffic updated for ${routeId}: ${condition}`);
+      refreshNearbyVehicles();
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+// Passenger Wallet & Passes Logic
+async function loadWalletData() {
+  try {
+    const res = await fetch('/api/wallet/user-p1');
+    const data = await res.json();
+    if (data.success) {
+      state.userWallet = data.wallet;
+      const hBal = document.getElementById('header-wallet-balance');
+      const mBal = document.getElementById('wallet-modal-balance');
+      const txt = `KSh ${data.wallet.balance_kes.toLocaleString()}`;
+      if (hBal) hBal.textContent = txt;
+      if (mBal) mBal.textContent = txt;
+
+      const wMethodBtn = document.getElementById('pay-method-wallet');
+      if (wMethodBtn) wMethodBtn.textContent = `👛 Wallet (${txt})`;
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function openWalletModal() {
+  document.getElementById('modal-wallet').classList.remove('hidden');
+}
+
+function closeWalletModal() {
+  document.getElementById('modal-wallet').classList.add('hidden');
+}
+
+function openTopupSection() {
+  document.getElementById('wallet-topup-box').classList.toggle('hidden');
+}
+
+async function submitWalletTopup() {
+  const amt = document.getElementById('topup-amount-input').value;
+  try {
+    const res = await fetch('/api/wallet/topup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: 'user-p1', amount: amt, phone: '0712345678' })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message);
+      document.getElementById('wallet-topup-box').classList.add('hidden');
+      await loadWalletData();
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+async function buyCommuterPass(passId) {
+  try {
+    const res = await fetch('/api/commuter-passes/buy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pass_id: passId, user_id: 'user-p1', phone: '0712345678' })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message);
+      closeWalletModal();
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+// Lost and Found Logic
+function openLostFoundModal() {
+  document.getElementById('modal-lost-found').classList.remove('hidden');
+  loadLostFoundItems();
+}
+
+function closeLostFoundModal() {
+  document.getElementById('modal-lost-found').classList.add('hidden');
+}
+
+function toggleLostReportForm() {
+  document.getElementById('lost-report-form').classList.toggle('hidden');
+}
+
+async function loadLostFoundItems() {
+  const listEl = document.getElementById('lost-found-items-list');
+  if (!listEl) return;
+
+  try {
+    const res = await fetch('/api/lost-found');
+    const data = await res.json();
+    if (data.success) {
+      listEl.innerHTML = '';
+      data.items.forEach(item => {
+        const d = document.createElement('div');
+        d.className = 'p-3 bg-slate-50 border rounded-xl space-y-1';
+        d.innerHTML = `
+          <div class="flex justify-between items-center">
+            <strong class="text-slate-900">${item.item_title}</strong>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${item.status === 'found_at_depot' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">
+              ${item.status === 'found_at_depot' ? 'SAFE AT DEPOT' : 'SEARCHING'}
+            </span>
+          </div>
+          <p class="text-slate-500 text-[11px]">${item.description}</p>
+          <div class="text-[10px] text-slate-400 flex justify-between pt-1 border-t">
+            <span>Vehicle: ${item.vehicle_reg}</span>
+            <span>Location: ${item.depot_location}</span>
+          </div>
+        `;
+        listEl.appendChild(d);
+      });
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+async function submitLostReport() {
+  const title = document.getElementById('lf-title').value;
+  const veh = document.getElementById('lf-veh').value;
+  const phone = document.getElementById('lf-phone').value;
+  const desc = document.getElementById('lf-desc').value;
+
+  if (!title) {
+    alert('Please enter item title');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/lost-found', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ item_title: title, vehicle_reg: veh, contact_phone: phone, description: desc })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message);
+      document.getElementById('lost-report-form').classList.add('hidden');
+      loadLostFoundItems();
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+// Passenger Ratings & Reviews Logic
+function openReviewsModal() {
+  document.getElementById('modal-reviews').classList.remove('hidden');
+}
+
+function closeReviewsModal() {
+  document.getElementById('modal-reviews').classList.add('hidden');
+}
+
+function setReviewRating(stars) {
+  state.reviewRating = stars;
+  const ratingText = ['1 Star (Poor)', '2 Stars (Fair)', '3 Stars (Average)', '4 Stars (Good)', '5 Stars (Excellent)'][stars - 1];
+  document.getElementById('star-rating-val').textContent = ratingText;
+}
+
+async function submitTripReview() {
+  const comment = document.getElementById('review-comment-input').value;
+  try {
+    const res = await fetch('/api/reviews', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        rating: state.reviewRating,
+        comment,
+        route_id: state.selectedRouteId || 'route-125',
+        vehicle_id: state.selectedVehicle ? state.selectedVehicle.id : 'veh-1',
+        passenger_name: 'Brian Mwangi'
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message);
+      closeReviewsModal();
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}
+
 function openNotificationModal() {
   document.getElementById('modal-notifications').classList.remove('hidden');
 }
@@ -1331,7 +1608,6 @@ function closeNotificationModal() {
   document.getElementById('modal-notifications').classList.add('hidden');
 }
 
-// Toast System
 function showToast(message) {
   const toast = document.getElementById('toast');
   const msgEl = document.getElementById('toast-message');

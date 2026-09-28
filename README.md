@@ -6,16 +6,16 @@ The platform provides an Uber-like experience tailored specifically for multi-pa
 
 ---
 
-## Key Features Built
+## Complete Feature Matrix
 
 ### 1. Passenger App Experience (Sections 1, 3, 5, 8, 10, 11, 13)
-* **Route Discovery & Filtering**: Search and filter Nairobi metropolitan routes (CBD to Rongai, CBD to Ngong, CBD to Thika, CBD to Kikuyu, CBD to Ruaka, CBD to Kiambu).
-* **Proximity Vehicle Finding (GPS Discovery)**: Locates active operating vehicles nearby, calculating precise distance (e.g., 650 m), ETA (e.g., 4 min), and fare.
+* **Route Discovery & Filtering**: Search and filter Nairobi metropolitan corridors (CBD to Rongai, CBD to Ngong, CBD to Thika, CBD to Kikuyu, CBD to Ruaka, and CBD to Kiambu).
+* **Proximity Vehicle Finding (GPS Discovery)**: Locates active operating vehicles nearby, calculating precise distance (e.g., 650 m), ETA, and fare.
 * **Dual Boarding Modes (Section 8)**:
   * **Reserved Seating Mode**: Visual seat map for 33-seater minibuses and 51-seater coaches with 7-minute seat-locking during payment.
-  * **Pay & Board Mode**: Fast ticketing for rapid turnaround vehicles (such as 14-seater Nissan matatus) without fixed seat reservations.
+  * **Pay & Board Mode**: Fast ticketing for rapid turnaround vehicles (such as 14-seater Nissan matatus) without pre-assigned seat numbers.
 * **M-Pesa STK Push Integration (Section 10)**:
-  * Initiates Safaricom Daraja STK Push prompt directly to the passenger's phone.
+  * Safaricom Daraja STK Push prompt simulation and live credential support.
   * Interactive STK prompt simulator with PIN entry.
   * Server-side callback verification before booking and ticket issuance.
 * **Digital Ticket & QR Code (Section 11)**:
@@ -25,7 +25,7 @@ The platform provides an Uber-like experience tailored specifically for multi-pa
   * Interactive Leaflet map displaying passenger location, moving vehicle, designated stops, and route polyline.
   * Real-time telemetry bar showing vehicle speed, distance, and dynamic arrival ETA.
 
-### 2. Driver & Conductor Terminal (Section 6 & 12)
+### 2. Driver & Conductor Terminal (Sections 6 & 12)
 * Mobile-responsive conductor interface with assigned vehicle and route details.
 * **Trip Controls**: One-tap "Start Route" and "Stop Route" buttons.
 * **Real-Time GPS Tracking**: Automatic GPS waypoint streaming along Nairobi roads and manual GPS ping beacon.
@@ -33,53 +33,43 @@ The platform provides an Uber-like experience tailored specifically for multi-pa
 * **QR Ticket Validator**: Built-in QR scanner and ticket ID validator to scan passenger tickets and clear boarding.
 
 ### 3. Transport Operator Dashboard (Section 15)
-* Dedicated SACCO management portal (e.g., Super Metro, Ongata Line Rongai SACCO, Citi Hoppa, Kikuyu Travellers).
+* Dedicated SACCO management portal (Super Metro, Ongata Line Rongai SACCO, Citi Hoppa, Kikuyu Travellers).
 * **Revenue Analytics**: Real-time revenue reports showing Daily, Weekly, and Monthly totals in Kenyan Shillings (KSh).
 * **Fleet Management**: Register new vehicles (plate number, capacity, model, route, reservation mode).
-* Active vehicle status indicators and driver assignment tracking.
+* **Driver Performance Index (Section 23)**: Monitor safety scores, on-time punctuality, and ratings per driver.
 
-### 4. Central Platform Administrator Console (Section 16)
+### 4. Central Platform Administrator Console (Sections 9, 16, 21)
 * System-wide monitoring of all registered operators, vehicles, drivers, routes, and transactions.
 * **City-Wide Active Vehicle Telematics Map**: Live OpenStreetMap showing all active matatus and buses moving simultaneously across Nairobi.
 * **Approved Fare Governance**: View and configure approved base fares per route with instant system propagation.
+* **Live Traffic Congestion Controller (Section 23)**: Simulate road congestion on Nairobi corridors to dynamically recalculate ETAs.
 * **Audit & Security Ledger (Section 21)**: Real-time audit log tracking payments, seat locks, trip dispatches, and ticket verifications.
 
-### 5. Split View Demonstration Mode
-* Side-by-side split screen showing the Conductor Terminal driving and broadcasting GPS on the left while the Passenger Tracking Screen tracks the vehicle in real time on the right.
+### 5. Phase 2 Features (Section 23)
+* **Passenger Digital Wallet**: In-app commuter wallet with balance checking, M-Pesa top-up, and 1-click fare payments.
+* **Unlimited Commuter Passes**: 24-Hour Day Pass and 7-Day Weekly Commuter Pass options.
+* **Promo Code Engine**: Discount vouchers (e.g. `NAIROBI20`, `TWENDE`, `MATATU50`) applied directly at checkout.
+* **Matatu Lost & Found Registry**: Public reporting portal for items left on buses and recovery status tracking at SACCO depots.
+* **Passenger Ratings & Reviews**: 5-star rating system with feedback for operators and conductors.
+* **SMS Notifications**: Automated SMS dispatch for tickets, payments, and boarding clearance.
+* **Progressive Web App (PWA)**: Mobile home screen installation on iOS and Android with offline caching.
 
 ---
 
 ## Technology Stack
 
 * **Backend**: Node.js, Express, Socket.IO, UUID.
-* **Database & State**: In-memory data store with automatic seat-lock expiration worker and audit logging.
+* **Database & Persistence**: In-memory database with automatic seat-lock expiration worker and JSON disk persistence (`data/database.json`).
 * **Real-Time Layer**: WebSockets for vehicle GPS broadcasting, seat status updates, and payment alerts.
-* **Frontend**: HTML5, Tailwind CSS, Leaflet.js (OpenStreetMap), QRCode.js, Socket.IO client.
-* **Payment Gateway**: Safaricom M-Pesa STK Push simulation with server-side callback lifecycle.
-
----
-
-## Project Structure
-
-```
-├── package.json               # Node.js dependencies and scripts
-├── Nairobi_Local_Bus_Matatu_App_Documentation.pdf # Original developer brief
-├── server/
-│   ├── index.js               # Express server and Socket.IO initialization
-│   ├── db.js                  # In-memory database with pre-seeded Nairobi routes & tables
-│   ├── routes.js              # REST API endpoints (Passenger, Conductor, Operator, Admin)
-│   └── simulator.js           # Real Nairobi route GPS movement simulator
-└── public/
-    ├── index.html             # Multi-role single page application
-    ├── styles.css             # Custom styles and map markers
-    └── app.js                 # Frontend application logic, WebSockets, Leaflet maps
-```
+* **Frontend**: HTML5, Tailwind CSS, Leaflet.js (OpenStreetMap), QRCode.js, Socket.IO client, Service Worker (PWA).
+* **Payment Gateway**: Safaricom Daraja M-Pesa STK Push client with server-side callback verification.
+* **SMS Dispatch**: Automated SMS gateway service for passenger alerts.
 
 ---
 
 ## How to Run
 
-1. **Install Dependencies** (if not already installed):
+1. **Install Dependencies**:
    ```bash
    npm install
    ```

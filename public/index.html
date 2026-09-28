@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Nairobi Local Bus & Matatu Transit Platform</title>
   
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#008751" />
+
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -48,11 +51,11 @@
         <!-- Brand Logo & Kenya Transit Badge -->
         <div class="flex items-center space-x-3 cursor-pointer" onclick="switchView('passenger')">
           <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-green to-emerald-400 flex items-center justify-center shadow-lg text-white font-black text-xl">
-            NB
+            TG
           </div>
           <div>
             <div class="font-bold text-lg tracking-tight flex items-center gap-2">
-              <span>Nairobi Local Transit</span>
+              <span>TransitGo Nairobi</span>
               <span class="text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-medium">Live GPS</span>
             </div>
             <p class="text-xs text-slate-400">Bus & Matatu Booking, Tracking and Payment</p>
@@ -60,7 +63,7 @@
         </div>
 
         <!-- Role Navigation Tabs -->
-        <nav class="hidden md:flex items-center space-x-1 bg-slate-800/90 p-1.5 rounded-xl border border-slate-700">
+        <nav class="hidden lg:flex items-center space-x-1 bg-slate-800/90 p-1.5 rounded-xl border border-slate-700">
           <button id="nav-passenger" onclick="switchView('passenger')" class="px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-1.5 bg-brand-green text-white shadow-sm">
             <span>🚏</span> Passenger App
           </button>
@@ -74,16 +77,25 @@
             <span>🛡️</span> Platform Admin
           </button>
           <button id="nav-split" onclick="switchView('split')" class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1 bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/40">
-            <span>⚡</span> Split View Demo
+            <span>⚡</span> Split Demo
           </button>
         </nav>
 
-        <!-- Right Quick Status -->
-        <div class="flex items-center space-x-3">
-          <div class="hidden sm:flex items-center text-xs text-slate-300 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
-            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse mr-2"></span>
-            <span>Daraja M-Pesa Live</span>
-          </div>
+        <!-- Right Quick Actions: Wallet, Lost & Found, Notifications -->
+        <div class="flex items-center space-x-2">
+          
+          <!-- Passenger Wallet Button -->
+          <button onclick="openWalletModal()" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 rounded-xl text-xs transition-colors">
+            <span class="text-emerald-400">👛</span>
+            <span class="font-bold text-white" id="header-wallet-balance">KSh 1,450</span>
+          </button>
+
+          <!-- Lost & Found Button -->
+          <button onclick="openLostFoundModal()" class="hidden sm:flex items-center gap-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 px-2.5 py-1.5 rounded-xl text-xs text-slate-300 hover:text-white transition-colors" title="Lost & Found Registry">
+            <span>🧳</span> Lost & Found
+          </button>
+
+          <!-- Notifications Bell -->
           <button onclick="openNotificationModal()" class="relative p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
             <span id="notif-badge" class="absolute top-1 right-1 w-2 h-2 bg-brand-red rounded-full"></span>
@@ -93,15 +105,31 @@
       </div>
     </div>
 
-    <!-- Mobile Navigation Sub-bar -->
-    <div class="md:hidden flex overflow-x-auto py-2 px-3 space-x-2 bg-slate-800 border-t border-slate-700 text-xs">
+    <!-- Mobile Sub-bar -->
+    <div class="lg:hidden flex overflow-x-auto py-2 px-3 space-x-2 bg-slate-800 border-t border-slate-700 text-xs">
       <button onclick="switchView('passenger')" class="whitespace-nowrap px-3 py-1.5 rounded-md bg-brand-green text-white font-semibold">Passenger</button>
       <button onclick="switchView('conductor')" class="whitespace-nowrap px-3 py-1.5 rounded-md bg-slate-700 text-slate-200">Conductor</button>
       <button onclick="switchView('operator')" class="whitespace-nowrap px-3 py-1.5 rounded-md bg-slate-700 text-slate-200">Operator</button>
       <button onclick="switchView('admin')" class="whitespace-nowrap px-3 py-1.5 rounded-md bg-slate-700 text-slate-200">Admin</button>
       <button onclick="switchView('split')" class="whitespace-nowrap px-3 py-1.5 rounded-md bg-amber-600 text-white">Split Demo</button>
+      <button onclick="openWalletModal()" class="whitespace-nowrap px-3 py-1.5 rounded-md bg-slate-700 text-emerald-400 font-bold">Wallet</button>
+      <button onclick="openLostFoundModal()" class="whitespace-nowrap px-3 py-1.5 rounded-md bg-slate-700 text-slate-200">Lost & Found</button>
     </div>
   </header>
+
+  <!-- Live Traffic Advisory Bar -->
+  <div class="bg-slate-900 border-b border-slate-800 py-1.5 px-4 text-xs text-slate-300">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-2 overflow-hidden text-ellipsis whitespace-nowrap">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <strong class="text-white">Nairobi Traffic Advisory:</strong>
+        <span id="traffic-advisory-text">Langata Rd: Moderate traffic (+4 min ETA) | Thika Superhighway: Flowing smoothly | Waiyaki Way: Clear</span>
+      </div>
+      <button onclick="openReviewsModal()" class="text-xs text-amber-400 hover:text-amber-300 font-semibold underline whitespace-nowrap ml-3">
+        ⭐ Rate Your Trip
+      </button>
+    </div>
+  </div>
 
   <!-- MAIN APP CONTAINER -->
   <main class="flex-1 flex flex-col relative max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
@@ -168,7 +196,7 @@
       <!-- Main Passenger 2-Column Section: Nearby Vehicles List + Live Interactive Map -->
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
-        <!-- Left Column: Nearby Vehicles List (Section 5) -->
+        <!-- Left Column: Nearby Vehicles List -->
         <div class="lg:col-span-5 space-y-4">
           <div class="flex items-center justify-between">
             <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
@@ -182,7 +210,6 @@
 
           <!-- List Container -->
           <div id="nearby-vehicles-container" class="space-y-3">
-            <!-- Dynamic vehicle cards inserted by JavaScript -->
             <div class="p-6 text-center text-slate-500 bg-white rounded-xl shadow-sm border border-slate-200">
               Loading nearby active matatus and buses...
             </div>
@@ -200,7 +227,7 @@
 
         </div>
 
-        <!-- Right Column: Interactive Map & Live Vehicle Tracking Screen (Section 6 & 13) -->
+        <!-- Right Column: Interactive Map & Live Vehicle Tracking Screen -->
         <div class="lg:col-span-7 space-y-4">
           
           <div class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
@@ -249,7 +276,7 @@
 
           </div>
 
-          <!-- Active Ticket Card (if passenger already has a booked ticket) -->
+          <!-- Active Ticket Card -->
           <div id="active-ticket-banner" class="hidden bg-gradient-to-r from-emerald-600 to-teal-700 text-white rounded-2xl p-5 shadow-lg flex items-center justify-between">
             <div class="space-y-1">
               <span class="text-xs bg-white/20 px-2 py-0.5 rounded-full font-semibold">Active Digital Boarding Pass</span>
@@ -267,7 +294,7 @@
 
     </section>
 
-    <!-- 2. CONDUCTOR / DRIVER TERMINAL VIEW (Section 12) -->
+    <!-- 2. CONDUCTOR / DRIVER TERMINAL VIEW -->
     <section id="view-conductor" class="hidden space-y-6">
       
       <!-- Conductor Header & Status Bar -->
@@ -291,7 +318,7 @@
             </p>
           </div>
 
-          <!-- Trip Controls (START ROUTE / STOP ROUTE) -->
+          <!-- Trip Controls -->
           <div class="flex items-center gap-3">
             <button id="btn-toggle-trip" onclick="toggleTripStatus()" class="px-5 py-2.5 rounded-xl font-bold text-sm bg-rose-600 hover:bg-rose-700 text-white shadow-lg transition-all flex items-center gap-2">
               <span>🛑</span> Stop Route
@@ -338,7 +365,6 @@
             <button onclick="loadConductorManifest()" class="text-xs text-emerald-700 hover:text-emerald-800 font-semibold">Refresh List</button>
           </div>
 
-          <!-- Manifest Table -->
           <div class="overflow-x-auto">
             <table class="w-full text-left text-xs">
               <thead class="bg-slate-50 text-slate-600 uppercase font-semibold border-b">
@@ -352,13 +378,12 @@
                 </tr>
               </thead>
               <tbody id="conductor-manifest-tbody" class="divide-y divide-slate-100">
-                <!-- Manifest rows -->
               </tbody>
             </table>
           </div>
         </div>
 
-        <!-- Right: Conductor Ticket QR Scanner & Validation Tool -->
+        <!-- Right: Conductor Ticket QR Scanner -->
         <div class="lg:col-span-5 bg-white rounded-2xl p-6 shadow-md border border-slate-200 space-y-4">
           <div>
             <h3 class="font-bold text-base text-slate-900 flex items-center gap-2">
@@ -367,7 +392,6 @@
             <p class="text-xs text-slate-500">Scan passenger QR ticket or enter Ticket ID to verify boarding</p>
           </div>
 
-          <!-- Quick QR Input / Simulation Scanner -->
           <div class="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
             <label class="block text-xs font-semibold text-slate-700">Scan or Enter Ticket ID / QR Payload</label>
             <div class="flex gap-2">
@@ -383,9 +407,7 @@
             </div>
           </div>
 
-          <!-- Verification Result Banner -->
           <div id="scanner-result-box" class="hidden p-4 rounded-xl border transition-all text-xs space-y-2">
-            <!-- Dynamically populated verification result -->
           </div>
 
         </div>
@@ -394,10 +416,9 @@
 
     </section>
 
-    <!-- 3. SACCO / OPERATOR DASHBOARD (Section 15) -->
+    <!-- 3. SACCO / OPERATOR DASHBOARD -->
     <section id="view-operator" class="hidden space-y-6">
       
-      <!-- Operator Top Banner -->
       <div class="bg-slate-900 text-white rounded-2xl p-6 shadow-xl border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <span class="text-xs font-semibold px-2.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
@@ -424,7 +445,7 @@
         </div>
       </div>
 
-      <!-- Revenue Statistics Cards (Daily, Weekly, Monthly Totals - Section 15) -->
+      <!-- Revenue Statistics Cards -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
         <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
@@ -477,18 +498,55 @@
               </tr>
             </thead>
             <tbody id="op-fleet-tbody" class="divide-y divide-slate-100">
-              <!-- Dynamically populated -->
             </tbody>
           </table>
         </div>
       </div>
 
+      <!-- Driver Performance & Safety Section (Section 23) -->
+      <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-4">
+        <div class="border-b pb-3 flex items-center justify-between">
+          <div>
+            <h3 class="font-bold text-base text-slate-900">Driver Safety & Performance Index</h3>
+            <p class="text-xs text-slate-500">Speed compliance, passenger safety ratings, and trip punctuality</p>
+          </div>
+          <span class="text-xs bg-emerald-50 text-emerald-800 font-bold px-2.5 py-1 rounded-full border border-emerald-200">
+            Fleet Safety Index: 96.5%
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+          <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+            <div class="flex justify-between items-center">
+              <strong class="text-slate-900 text-sm">Kamau Njoroge (KDA 123A)</strong>
+              <span class="bg-emerald-600 text-white font-bold px-2 py-0.5 rounded text-[11px]">⭐ 4.9 Rating</span>
+            </div>
+            <div class="grid grid-cols-3 gap-2 text-center pt-1">
+              <div><span class="text-slate-400 block text-[10px]">Safety Score</span><strong class="text-emerald-700 text-sm">98%</strong></div>
+              <div><span class="text-slate-400 block text-[10px]">On-Time Rate</span><strong class="text-slate-800 text-sm">96%</strong></div>
+              <div><span class="text-slate-400 block text-[10px]">Trips Done</span><strong class="text-slate-800 text-sm">1,420</strong></div>
+            </div>
+          </div>
+
+          <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+            <div class="flex justify-between items-center">
+              <strong class="text-slate-900 text-sm">Peter Kariuki (KDC 456B)</strong>
+              <span class="bg-emerald-600 text-white font-bold px-2 py-0.5 rounded text-[11px]">⭐ 4.8 Rating</span>
+            </div>
+            <div class="grid grid-cols-3 gap-2 text-center pt-1">
+              <div><span class="text-slate-400 block text-[10px]">Safety Score</span><strong class="text-emerald-700 text-sm">95%</strong></div>
+              <div><span class="text-slate-400 block text-[10px]">On-Time Rate</span><strong class="text-slate-800 text-sm">93%</strong></div>
+              <div><span class="text-slate-400 block text-[10px]">Trips Done</span><strong class="text-slate-800 text-sm">980</strong></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </section>
 
-    <!-- 4. PLATFORM ADMINISTRATOR DASHBOARD (Section 16) -->
+    <!-- 4. PLATFORM ADMINISTRATOR DASHBOARD -->
     <section id="view-admin" class="hidden space-y-6">
       
-      <!-- Admin Top Banner -->
       <div class="bg-slate-900 text-white rounded-2xl p-6 shadow-xl border border-slate-800">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
@@ -510,7 +568,6 @@
           </div>
         </div>
 
-        <!-- Metrics Grid -->
         <div class="mt-6 pt-5 border-t border-slate-800 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-center">
           <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700">
             <div class="text-[11px] text-slate-400">Total Operators</div>
@@ -540,7 +597,7 @@
 
       </div>
 
-      <!-- Live Nairobi-wide Fleet Surveillance Map -->
+      <!-- Live Nairobi Fleet Map -->
       <div class="bg-white rounded-2xl p-4 shadow-md border border-slate-200 space-y-3">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
@@ -552,10 +609,54 @@
         <div id="admin-map" class="w-full h-[400px] rounded-xl overflow-hidden border"></div>
       </div>
 
-      <!-- Lower Admin 2-Column: Fare Management & Audit Logs -->
+      <!-- Traffic Simulation Control Bar (Section 23 - Traffic-based ETA) -->
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 space-y-3">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="font-bold text-sm text-slate-900">Live Traffic Congestion Controller</h3>
+            <p class="text-xs text-slate-500">Simulate congestion on Nairobi corridors to dynamically adjust passenger ETAs</p>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          <div class="p-3 bg-slate-50 rounded-xl border flex items-center justify-between">
+            <div>
+              <strong class="block">Route 125 (Langata Rd)</strong>
+              <span id="traffic-status-125" class="text-amber-600 font-semibold">Moderate (+4 min)</span>
+            </div>
+            <select onchange="updateTraffic('route-125', this.value)" class="border rounded px-2 py-1 text-xs">
+              <option value="Light">Light</option>
+              <option value="Moderate" selected>Moderate</option>
+              <option value="Heavy">Heavy Jam</option>
+            </select>
+          </div>
+          <div class="p-3 bg-slate-50 rounded-xl border flex items-center justify-between">
+            <div>
+              <strong class="block">Route 237 (Thika Rd)</strong>
+              <span id="traffic-status-237" class="text-emerald-600 font-semibold">Light (Clear)</span>
+            </div>
+            <select onchange="updateTraffic('route-237', this.value)" class="border rounded px-2 py-1 text-xs">
+              <option value="Light" selected>Light</option>
+              <option value="Moderate">Moderate</option>
+              <option value="Heavy">Heavy Jam</option>
+            </select>
+          </div>
+          <div class="p-3 bg-slate-50 rounded-xl border flex items-center justify-between">
+            <div>
+              <strong class="block">Route 111 (Ngong Rd)</strong>
+              <span id="traffic-status-111" class="text-rose-600 font-semibold">Heavy Jam (+8 min)</span>
+            </div>
+            <select onchange="updateTraffic('route-111', this.value)" class="border rounded px-2 py-1 text-xs">
+              <option value="Light">Light</option>
+              <option value="Moderate">Moderate</option>
+              <option value="Heavy" selected>Heavy Jam</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lower Admin: Fare Matrix & Audit Logs -->
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        <!-- Left: Fare Matrix Configuration (Section 9) -->
         <div class="lg:col-span-6 bg-white rounded-2xl p-6 shadow-md border border-slate-200 space-y-4">
           <div class="border-b pb-3">
             <h3 class="font-bold text-base text-slate-900">Approved Fare Governance</h3>
@@ -563,11 +664,9 @@
           </div>
 
           <div class="space-y-3" id="admin-fare-matrix-container">
-            <!-- Dynamically populated routes & fares -->
           </div>
         </div>
 
-        <!-- Right: System Audit & Security Trail (Section 21) -->
         <div class="lg:col-span-6 bg-white rounded-2xl p-6 shadow-md border border-slate-200 space-y-4">
           <div class="border-b pb-3">
             <h3 class="font-bold text-base text-slate-900">System Transaction & Audit Logs</h3>
@@ -575,7 +674,6 @@
           </div>
 
           <div id="admin-audit-logs-container" class="space-y-2 max-h-[360px] overflow-y-auto pr-1 text-xs">
-            <!-- Audit log items -->
           </div>
         </div>
 
@@ -583,7 +681,7 @@
 
     </section>
 
-    <!-- 5. SPLIT VIEW MODE (Simultaneous Driver + Passenger Demo) -->
+    <!-- 5. SPLIT VIEW MODE -->
     <section id="view-split" class="hidden space-y-4">
       <div class="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 text-xs text-amber-900 flex items-center justify-between">
         <div class="flex items-center gap-2">
@@ -594,7 +692,6 @@
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Split Left: Conductor Mini Controller -->
         <div class="bg-white rounded-2xl p-5 shadow border border-slate-200 space-y-4">
           <div class="flex items-center justify-between border-b pb-2">
             <h3 class="font-bold text-sm text-slate-900">🚌 Conductor Driver Phone Screen</h3>
@@ -623,7 +720,6 @@
           </div>
         </div>
 
-        <!-- Split Right: Passenger Mini Tracker -->
         <div class="bg-white rounded-2xl p-5 shadow border border-slate-200 space-y-4">
           <div class="flex items-center justify-between border-b pb-2">
             <h3 class="font-bold text-sm text-slate-900">🚏 Passenger Live Tracking Display</h3>
@@ -660,11 +756,10 @@
 
   <!-- ================= MODALS ================= -->
 
-  <!-- 1. SEAT SELECTION & BOOKING MODAL (Section 8 & 18) -->
+  <!-- 1. SEAT SELECTION & BOOKING MODAL -->
   <div id="modal-seat-picker" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 flex flex-col">
       
-      <!-- Modal Header -->
       <div class="p-5 bg-slate-900 text-white flex items-center justify-between rounded-t-2xl">
         <div>
           <div class="flex items-center gap-2">
@@ -676,15 +771,12 @@
         <button onclick="closeSeatModal()" class="text-slate-400 hover:text-white text-xl font-bold">&times;</button>
       </div>
 
-      <!-- Mode Information Banner (Reserved vs Pay/Board) -->
       <div id="seat-mode-notice" class="bg-amber-50 border-b border-amber-200 px-5 py-3 text-xs text-amber-900 flex items-center justify-between">
         <span>Selected seats are temporarily locked for 7 minutes during M-Pesa payment.</span>
       </div>
 
-      <!-- Seat Map Visualizer -->
       <div class="p-6 space-y-5">
         
-        <!-- Legend -->
         <div class="flex items-center justify-center gap-5 text-xs">
           <div class="flex items-center gap-1.5">
             <span class="w-4 h-4 rounded bg-slate-200 border border-slate-300"></span>
@@ -704,16 +796,13 @@
           </div>
         </div>
 
-        <!-- Bus Driver Cabin -->
         <div class="max-w-xs mx-auto border-2 border-slate-300 rounded-2xl p-4 bg-slate-50 space-y-4">
           <div class="flex items-center justify-between border-b pb-2 text-xs font-semibold text-slate-500">
             <span>Front Windshield</span>
             <span class="bg-slate-200 px-2 py-0.5 rounded text-[11px]">💺 Driver Seat</span>
           </div>
 
-          <!-- Dynamic Seat Grid -->
           <div id="seat-grid-container" class="space-y-2">
-            <!-- Dynamically generated seat rows -->
           </div>
 
           <div class="text-center text-[10px] text-slate-400 border-t pt-2">
@@ -721,7 +810,6 @@
           </div>
         </div>
 
-        <!-- Fare Summary in Modal -->
         <div class="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-2 text-xs">
           <div class="flex justify-between">
             <span class="text-slate-600">Selected Seat(s):</span>
@@ -735,41 +823,37 @@
 
       </div>
 
-      <!-- Modal Footer -->
       <div class="p-4 bg-slate-100 border-t border-slate-200 flex items-center justify-between rounded-b-2xl">
         <button onclick="closeSeatModal()" class="text-xs font-semibold text-slate-600 hover:text-slate-900 px-4 py-2">
           Cancel
         </button>
         <button id="btn-proceed-to-pay" onclick="proceedToPayment()" disabled class="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-xs px-6 py-2.5 rounded-xl shadow transition-all">
-          Proceed to M-Pesa Payment
+          Proceed to Payment
         </button>
       </div>
 
     </div>
   </div>
 
-  <!-- 2. M-PESA STK PUSH CHECKOUT MODAL (Section 10) -->
+  <!-- 2. M-PESA & WALLET CHECKOUT MODAL (With Promo Code Support) -->
   <div id="modal-mpesa-checkout" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
       
-      <!-- Safaricom M-Pesa Header -->
       <div class="bg-brand-mpesa p-4 text-white flex items-center justify-between">
         <div class="flex items-center gap-2">
           <div class="w-8 h-8 rounded-full bg-white text-brand-mpesa font-black flex items-center justify-center text-sm shadow">
             M
           </div>
           <div>
-            <h4 class="font-extrabold text-sm">Lipa na M-Pesa Online</h4>
-            <p class="text-[11px] text-emerald-100">Direct STK Push Checkout</p>
+            <h4 class="font-extrabold text-sm">Digital Checkout & Payment</h4>
+            <p class="text-[11px] text-emerald-100">M-Pesa STK Push or Wallet Balance</p>
           </div>
         </div>
         <button onclick="closeMpesaModal()" class="text-emerald-100 hover:text-white font-bold text-xl">&times;</button>
       </div>
 
-      <!-- Payment Body -->
       <div class="p-6 space-y-4">
         
-        <!-- Summary Box -->
         <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs space-y-1.5">
           <div class="flex justify-between">
             <span class="text-slate-500">Merchant / Operator:</span>
@@ -789,16 +873,35 @@
           </div>
         </div>
 
-        <!-- Phone Number Input -->
-        <div class="space-y-1.5">
+        <!-- Promo Code Input (Section 23) -->
+        <div class="space-y-1">
+          <label class="block text-xs font-semibold text-slate-700">Have a Promo Code?</label>
+          <div class="flex gap-2">
+            <input id="checkout-promo-input" type="text" placeholder="e.g. NAIROBI20 or TWENDE" class="flex-1 bg-slate-50 border rounded-lg px-3 py-1.5 text-xs uppercase" />
+            <button onclick="applyPromoCode()" class="bg-slate-800 text-white font-bold text-xs px-3 py-1.5 rounded-lg hover:bg-slate-700">Apply</button>
+          </div>
+          <p id="promo-status-msg" class="text-[11px] hidden font-semibold"></p>
+        </div>
+
+        <!-- Payment Method Tabs: M-Pesa vs TransitGo Wallet -->
+        <div class="grid grid-cols-2 gap-2 pt-1">
+          <button id="pay-method-mpesa" onclick="selectPayMethod('mpesa')" class="p-2.5 rounded-xl border-2 border-brand-mpesa bg-emerald-50 text-emerald-900 text-xs font-bold text-center">
+            📱 M-Pesa STK Push
+          </button>
+          <button id="pay-method-wallet" onclick="selectPayMethod('wallet')" class="p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 text-xs font-bold text-center hover:border-slate-400">
+            👛 Wallet (KSh 1,450)
+          </button>
+        </div>
+
+        <!-- M-Pesa Phone Input Section -->
+        <div id="mpesa-phone-section" class="space-y-1.5">
           <label class="block text-xs font-bold text-slate-700">M-Pesa Phone Number</label>
           <div class="relative">
             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-xs font-bold text-slate-500">
               🇰🇪 +254
             </div>
-            <input id="mpesa-phone-input" type="text" value="712345678" class="w-full pl-20 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="7XXXXXXXX" />
+            <input id="mpesa-phone-input" type="text" value="712345678" class="w-full pl-20 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-emerald-500 outline-none" />
           </div>
-          <p class="text-[11px] text-slate-500">Enter your Safaricom number to receive the payment PIN prompt.</p>
         </div>
 
         <!-- Simulated STK Phone Screen Widget -->
@@ -816,17 +919,14 @@
               Send PIN
             </button>
           </div>
-          <p class="text-[10px] text-slate-400 text-center">Simulated prompt: Click "Send PIN" to confirm transaction.</p>
         </div>
 
-        <!-- Initial Trigger Button -->
         <div id="stk-init-container">
-          <button id="btn-trigger-stk" onclick="triggerMpesaStkPush()" class="w-full bg-brand-mpesa hover:bg-emerald-600 text-white font-extrabold text-sm py-3 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2">
-            <span>📲</span> Send M-Pesa STK Push
+          <button id="btn-trigger-stk" onclick="executeChosenPayment()" class="w-full bg-brand-mpesa hover:bg-emerald-600 text-white font-extrabold text-sm py-3 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2">
+            <span>📲</span> Complete Payment
           </button>
         </div>
 
-        <!-- Spinner Loading Status -->
         <div id="mpesa-status-spinner" class="hidden text-center space-y-2 py-3">
           <div class="inline-block w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
           <p id="mpesa-status-text" class="text-xs font-semibold text-slate-700">Waiting for M-Pesa network confirmation...</p>
@@ -834,7 +934,6 @@
 
       </div>
 
-      <!-- Cancel -->
       <div class="p-3 bg-slate-50 border-t border-slate-200 text-center">
         <button onclick="cancelPaymentAndReleaseSeats()" class="text-xs text-slate-500 hover:text-slate-800 font-medium">
           Cancel Transaction & Release Seat
@@ -844,11 +943,10 @@
     </div>
   </div>
 
-  <!-- 3. DIGITAL TICKET & QR CODE MODAL (Section 11) -->
+  <!-- 3. DIGITAL TICKET & QR CODE MODAL -->
   <div id="modal-digital-ticket" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white rounded-3xl max-w-sm w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col text-slate-900">
       
-      <!-- Boarding Pass Header -->
       <div class="bg-gradient-to-r from-emerald-600 to-teal-700 p-5 text-white text-center relative">
         <button onclick="closeTicketModal()" class="absolute top-3 right-4 text-emerald-200 hover:text-white text-xl font-bold">&times;</button>
         <span class="text-[11px] bg-white/20 font-bold uppercase tracking-wider px-2 py-0.5 rounded-full">
@@ -858,17 +956,14 @@
         <p class="text-xs text-emerald-100" id="ticket-operator-name">Ongata Line Rongai SACCO</p>
       </div>
 
-      <!-- Ticket Body with Perforated Edge -->
       <div class="p-5 space-y-4 bg-white relative">
         
-        <!-- QR Code Container -->
         <div class="flex flex-col items-center justify-center p-3 bg-slate-50 rounded-2xl border border-dashed border-slate-300">
           <div id="ticket-qrcode" class="p-2 bg-white rounded-xl shadow-sm"></div>
           <span class="text-[11px] font-mono text-slate-500 mt-2 font-bold" id="ticket-id-display">TCK-123456</span>
           <span class="text-[10px] text-slate-400">Present this QR code to the conductor upon boarding</span>
         </div>
 
-        <!-- Passenger Details Grid -->
         <div class="grid grid-cols-2 gap-3 text-xs border-t pt-3">
           <div>
             <span class="text-slate-400 text-[10px] uppercase">Passenger:</span>
@@ -896,14 +991,12 @@
           </div>
         </div>
 
-        <!-- Verification Status Badge -->
         <div id="ticket-verification-status" class="bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 text-center text-xs text-emerald-800 font-bold">
           VALID & READY TO BOARD
         </div>
 
       </div>
 
-      <!-- Ticket Actions -->
       <div class="p-4 bg-slate-50 border-t border-slate-200 flex gap-2">
         <button onclick="window.print()" class="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs py-2 rounded-xl">
           Print / Save
@@ -916,7 +1009,151 @@
     </div>
   </div>
 
-  <!-- 4. ADD VEHICLE MODAL (For Operator) -->
+  <!-- 4. PASSENGER WALLET & COMMUTER PASSES MODAL (Section 23) -->
+  <div id="modal-wallet" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto shadow-2xl border space-y-4 p-6">
+      <div class="flex items-center justify-between border-b pb-3">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">👛</span>
+          <h3 class="font-bold text-base text-slate-900">TransitGo Digital Wallet & Passes</h3>
+        </div>
+        <button onclick="closeWalletModal()" class="text-slate-400 hover:text-slate-700 text-xl font-bold">&times;</button>
+      </div>
+
+      <!-- Current Balance Card -->
+      <div class="bg-gradient-to-r from-slate-900 to-slate-800 text-white rounded-xl p-4 flex items-center justify-between">
+        <div>
+          <span class="text-xs text-slate-400">Available Commuter Balance</span>
+          <div id="wallet-modal-balance" class="text-2xl font-black text-emerald-400">KSh 1,450</div>
+        </div>
+        <button onclick="openTopupSection()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow">
+          + Top Up via M-Pesa
+        </button>
+      </div>
+
+      <!-- Topup Box -->
+      <div id="wallet-topup-box" class="hidden p-3 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2 text-xs">
+        <span class="font-bold text-emerald-900 block">Top Up Balance</span>
+        <div class="flex gap-2">
+          <input id="topup-amount-input" type="number" value="500" placeholder="Amount (KSh)" class="w-32 border rounded p-1.5 bg-white text-xs" />
+          <button onclick="submitWalletTopup()" class="bg-emerald-700 text-white font-bold px-3 py-1.5 rounded text-xs">Send M-Pesa STK</button>
+        </div>
+      </div>
+
+      <!-- Commuter Pass Templates -->
+      <div class="space-y-2">
+        <h4 class="font-bold text-xs text-slate-700 uppercase">Unlimited Commuter Passes</h4>
+        
+        <div class="border rounded-xl p-3 flex items-center justify-between hover:border-emerald-500">
+          <div>
+            <strong class="text-xs block text-slate-900">24-Hour Day Pass</strong>
+            <p class="text-[11px] text-slate-500">Unlimited travel on all Nairobi routes for 24 hours</p>
+          </div>
+          <button onclick="buyCommuterPass('pass-template-daily')" class="bg-slate-900 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg">
+            KSh 250
+          </button>
+        </div>
+
+        <div class="border rounded-xl p-3 flex items-center justify-between hover:border-emerald-500">
+          <div>
+            <strong class="text-xs block text-slate-900">7-Day Weekly Commuter Pass</strong>
+            <p class="text-[11px] text-slate-500">Mon-Sun unlimited rides across metropolitan network</p>
+          </div>
+          <button onclick="buyCommuterPass('pass-template-weekly')" class="bg-slate-900 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg">
+            KSh 1,200
+          </button>
+        </div>
+      </div>
+
+      <div class="text-right pt-2 border-t">
+        <button onclick="closeWalletModal()" class="px-4 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded-lg">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. LOST & FOUND REGISTRY MODAL (Section 23) -->
+  <div id="modal-lost-found" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto shadow-2xl border space-y-4 p-6">
+      <div class="flex items-center justify-between border-b pb-3">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">🧳</span>
+          <h3 class="font-bold text-base text-slate-900">Matatu Lost & Found Registry</h3>
+        </div>
+        <button onclick="closeLostFoundModal()" class="text-slate-400 hover:text-slate-700 text-xl font-bold">&times;</button>
+      </div>
+
+      <!-- Report Lost Item Button -->
+      <button onclick="toggleLostReportForm()" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs py-2 rounded-xl">
+        + Report an Item Lost on a Bus
+      </button>
+
+      <!-- Lost Report Form -->
+      <div id="lost-report-form" class="hidden bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2 text-xs">
+        <div>
+          <label class="block font-semibold">Item Title</label>
+          <input id="lf-title" type="text" placeholder="e.g. Blue HP Laptop Bag" class="w-full border rounded p-1.5 bg-white" />
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block font-semibold">Vehicle Reg</label>
+            <input id="lf-veh" type="text" placeholder="e.g. KDA 123A" class="w-full border rounded p-1.5 bg-white uppercase" />
+          </div>
+          <div>
+            <label class="block font-semibold">Contact Phone</label>
+            <input id="lf-phone" type="text" value="0712345678" class="w-full border rounded p-1.5 bg-white" />
+          </div>
+        </div>
+        <div>
+          <label class="block font-semibold">Description</label>
+          <textarea id="lf-desc" rows="2" placeholder="Where did you leave it?" class="w-full border rounded p-1.5 bg-white"></textarea>
+        </div>
+        <button onclick="submitLostReport()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1.5 rounded">Submit Report to Depots</button>
+      </div>
+
+      <!-- Current Items in Depot -->
+      <div class="space-y-2">
+        <h4 class="font-bold text-xs text-slate-700 uppercase">Recent Items Reported & Recovered</h4>
+        <div id="lost-found-items-list" class="space-y-2 text-xs">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. RATINGS & REVIEWS MODAL (Section 23) -->
+  <div id="modal-reviews" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl border space-y-4 p-6">
+      <div class="flex items-center justify-between border-b pb-3">
+        <h3 class="font-bold text-base text-slate-900">Passenger Trip Review & Rating</h3>
+        <button onclick="closeReviewsModal()" class="text-slate-400 hover:text-slate-700 text-xl font-bold">&times;</button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Select Star Rating</label>
+          <div class="flex gap-2 text-2xl cursor-pointer" id="star-rating-selector">
+            <span onclick="setReviewRating(1)">⭐</span>
+            <span onclick="setReviewRating(2)">⭐</span>
+            <span onclick="setReviewRating(3)">⭐</span>
+            <span onclick="setReviewRating(4)">⭐</span>
+            <span onclick="setReviewRating(5)">⭐</span>
+          </div>
+          <span id="star-rating-val" class="font-bold text-amber-600 block mt-1">5 Stars (Excellent)</span>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Trip Feedback</label>
+          <textarea id="review-comment-input" rows="3" placeholder="Share your experience about punctuality, driver speed, and conductor courtesy..." class="w-full border rounded-lg p-2.5 outline-none"></textarea>
+        </div>
+
+        <button onclick="submitTripReview()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-xl shadow">
+          Submit Review
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. ADD VEHICLE MODAL -->
   <div id="modal-add-vehicle" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border space-y-4">
       <div class="flex items-center justify-between border-b pb-3">
@@ -943,7 +1180,6 @@
         <div>
           <label class="block font-semibold text-slate-700 mb-1">Assign Initial Route</label>
           <select id="add-veh-route" class="w-full border rounded-lg p-2">
-            <!-- Dynamically populated -->
           </select>
         </div>
         <div>
@@ -961,7 +1197,7 @@
     </div>
   </div>
 
-  <!-- 5. NOTIFICATION MODAL -->
+  <!-- 8. NOTIFICATION MODAL -->
   <div id="modal-notifications" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border space-y-4">
       <div class="flex items-center justify-between border-b pb-3">
@@ -969,10 +1205,6 @@
         <button onclick="closeNotificationModal()" class="text-slate-400 hover:text-slate-700 text-xl font-bold">&times;</button>
       </div>
       <div id="notifications-list-container" class="space-y-2 max-h-[300px] overflow-y-auto text-xs">
-        <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-200">
-          <strong class="text-emerald-900 block">Payment Received</strong>
-          <p class="text-emerald-700">M-Pesa payment confirmed for Seat 3A on Route 125.</p>
-        </div>
       </div>
       <div class="text-right">
         <button onclick="closeNotificationModal()" class="px-4 py-2 text-xs font-semibold bg-slate-800 text-white rounded-lg">Close</button>
@@ -986,7 +1218,6 @@
     <span id="toast-message">Notification</span>
   </div>
 
-  <!-- Main Application Logic Script -->
   <script src="/app.js"></script>
 </body>
 </html>
